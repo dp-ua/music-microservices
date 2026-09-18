@@ -1,15 +1,10 @@
 package com.music.resource.configuration;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Configuration;
 
-import com.music.resource.client.song.SongServiceClientPaths;
-
 @Configuration
-@EnableConfigurationProperties
-        ({
-                SongServiceClientPaths.class
-        })
+@EnableFeignClients(basePackages = "com.music.resource.client")
 public class AppConfig {
 
 }

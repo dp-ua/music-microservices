@@ -24,6 +24,7 @@ dependencies {
     implementation "org.postgresql:postgresql:$postgresqlVersion"
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.0.4'
 
     //Swagger
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:$swaggerVersion"
@@ -38,6 +39,12 @@ dependencies {
     // mapstruct
     implementation "org.mapstruct:mapstruct:$mapStructVersion"
     annotationProcessor "org.mapstruct:mapstruct-processor:$mapStructVersion"
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2022.0.4"
+    }
 }
 
 tasks.named('test') {
