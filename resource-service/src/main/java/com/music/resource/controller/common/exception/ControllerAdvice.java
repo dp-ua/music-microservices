@@ -10,9 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.music.resource.exception.ErrorResponse;
-import com.music.resource.exception.ResourceNotFoundException;
 import com.music.resource.exception.ResourceException;
+import com.music.resource.exception.ResourceNotFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
