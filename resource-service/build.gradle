@@ -23,6 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation "org.postgresql:postgresql:$postgresqlVersion"
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     //Swagger
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:$swaggerVersion"
@@ -31,7 +32,12 @@ dependencies {
     implementation "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok"
 
-    implementation "net.jthink:jaudiotagger:$jthinkVersion"
+    // mp3 services
+    implementation("com.mpatric:mp3agic:$mpatricVersion")
+
+    // mapstruct
+    implementation "org.mapstruct:mapstruct:$mapStructVersion"
+    annotationProcessor "org.mapstruct:mapstruct-processor:$mapStructVersion"
 }
 
 tasks.named('test') {
