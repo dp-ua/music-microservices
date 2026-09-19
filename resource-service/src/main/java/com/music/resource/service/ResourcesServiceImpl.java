@@ -44,9 +44,10 @@ public class ResourcesServiceImpl implements ResourcesService {
     }
 
     @Override
-    public byte[] getResource(Long id) {
+    public Resource getResource(Long id) {
         log.info("Getting resource with id {}", id);
-        return resourcesRepository.findFileDataById(id)
+        return resourcesRepository.findById(id)
+                .filter(resource -> !resource.getIsDeleted())
                 .orElseThrow(() -> ResourceNotFoundException.byId(id));
     }
 

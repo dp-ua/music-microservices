@@ -1,7 +1,6 @@
 package com.music.resource.repository;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -22,8 +21,5 @@ public interface ResourcesRepository extends JpaRepository<Resource, Long> {
     @Transactional
     @Query("UPDATE Resource r SET r.isDeleted = true WHERE r.id IN :ids")
     void softDeleteByIdIn(@Param("ids") List<Long> ids);
-
-    @Query(value = "SELECT r.file_data FROM Resource r WHERE r.id = :id AND r.is_deleted = false", nativeQuery = true)
-    Optional<byte[]> findFileDataById(@Param("id") Long id);
 
 }

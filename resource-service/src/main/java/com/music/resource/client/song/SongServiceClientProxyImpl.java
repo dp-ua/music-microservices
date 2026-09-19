@@ -16,9 +16,14 @@ public class SongServiceClientProxyImpl implements SongServiceClientProxy {
 
     @Override
     public void uploadMetadata(ClientMetadataUploadDto clientDto) {
-        log.info("Uploading metadata for resource: {}", clientDto.getResourceId());
-        songServiceClient.uploadMetadata(clientDto);
-        log.info("Metadata uploaded successfully for resource: {}", clientDto.getResourceId());
+        log.info("Uploading metadata for resourceId: {}", clientDto.getResourceId());
+        try {
+            songServiceClient.uploadMetadata(clientDto);
+            log.info("Metadata uploaded successfully for resourceId: {}", clientDto.getResourceId());
+        } catch (feign.RetryableException e) {
+            log.error("song-service not available. Metadata not uploaded. resourceId: {}, reason: {}", clientDto.getResourceId(), e.getMessage());
+            // TODO: should be thrown own error
+        }
     }
 
 }

@@ -4,6 +4,10 @@ import static org.springframework.http.HttpStatus.CREATED;
 
 import java.util.List;
 
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -46,9 +50,17 @@ public class ResourcesController implements ResourcesControllerApi {
 
     @Override
     @GetMapping(path = "/{id}")
-    public ResponseEntity<byte[]> getResource(@PathVariable Long id) {
-        log.info("Get resource. id: {}", id);
-        return ResponseEntity.ok(resourcesService.getResource(id));
+    public ResponseEntity<Resource> getResource(@PathVariable Long id) {
+        var content = resourcesService.getResource(id);
+        var resource = new ByteArrayResource(content.getFileData());
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(content.getContentType()))
+                .contentLength(content.getFileSize())
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline().filename(content.getFileName()).build().toString())
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .body(resource);
     }
 
     @Override

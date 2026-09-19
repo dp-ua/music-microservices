@@ -24,7 +24,7 @@ dependencies {
 //    implementation "org.postgresql:postgresql:$postgresqlVersion"
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.0.4'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
     runtimeOnly 'com.h2database:h2'
 
@@ -45,7 +45,7 @@ dependencies {
 
 dependencyManagement {
     imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2022.0.4"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2024.0.0"
     }
 }
 
