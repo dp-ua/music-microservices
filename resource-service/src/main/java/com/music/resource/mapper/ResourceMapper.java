@@ -5,7 +5,7 @@ import static org.mapstruct.MappingConstants.ComponentModel.SPRING;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import com.music.resource.model.Resource;
+import com.music.resource.model.AudioResource;
 
 @Mapper(componentModel = SPRING)
 public interface ResourceMapper {
@@ -14,6 +14,6 @@ public interface ResourceMapper {
     @Mapping(target = "isDeleted", constant = "false")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    Resource toEntity(String fileName, byte[] fileData, Long fileSize, String contentType);
+    AudioResource toEntity(String fileName, byte[] fileData, Long fileSize, String contentType);
 
 }

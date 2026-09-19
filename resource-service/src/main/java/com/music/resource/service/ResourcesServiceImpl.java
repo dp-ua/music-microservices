@@ -12,7 +12,7 @@ import com.music.resource.exception.ResourceException;
 import com.music.resource.exception.ResourceNotFoundException;
 import com.music.resource.mapper.MetadataMapper;
 import com.music.resource.mapper.ResourceMapper;
-import com.music.resource.model.Resource;
+import com.music.resource.model.AudioResource;
 import com.music.resource.repository.ResourcesRepository;
 import com.music.resource.utils.MetadataUtilParser;
 
@@ -44,7 +44,7 @@ public class ResourcesServiceImpl implements ResourcesService {
     }
 
     @Override
-    public Resource getResource(Long id) {
+    public AudioResource getResource(Long id) {
         log.info("Getting resource with id {}", id);
         return resourcesRepository.findById(id)
                 .filter(resource -> !resource.getIsDeleted())
@@ -54,7 +54,7 @@ public class ResourcesServiceImpl implements ResourcesService {
     @Override
     public ResourcesDeletedDto deleteResources(List<Long> ids) {
         var existingIds = resourcesRepository.findAllByIdInAndNotDeleted(ids).stream()
-                .map(Resource::getId)
+                .map(AudioResource::getId)
                 .toList();
 
         if (!existingIds.isEmpty()) {

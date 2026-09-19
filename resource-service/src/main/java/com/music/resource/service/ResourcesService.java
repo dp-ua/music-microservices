@@ -6,13 +6,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.music.resource.controller.dto.ResourceUploadedDto;
 import com.music.resource.controller.dto.ResourcesDeletedDto;
-import com.music.resource.model.Resource;
+import com.music.resource.model.AudioResource;
 
 public interface ResourcesService {
 
     ResourceUploadedDto uploadResource(MultipartFile file);
 
-    Resource getResource(Long id);
+    AudioResource getResource(Long id);
 
     ResourcesDeletedDto deleteResources(List<Long> ids);
 

@@ -9,17 +9,17 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.music.resource.model.Resource;
+import com.music.resource.model.AudioResource;
 
 @Repository
-public interface ResourcesRepository extends JpaRepository<Resource, Long> {
+public interface ResourcesRepository extends JpaRepository<AudioResource, Long> {
 
-    @Query("SELECT r FROM Resource r WHERE r.id IN :ids AND r.isDeleted = false")
-    List<Resource> findAllByIdInAndNotDeleted(@Param("ids") List<Long> ids);
+    @Query("SELECT r FROM AudioResource r WHERE r.id IN :ids AND r.isDeleted = false")
+    List<AudioResource> findAllByIdInAndNotDeleted(@Param("ids") List<Long> ids);
 
     @Modifying
     @Transactional
-    @Query("UPDATE Resource r SET r.isDeleted = true WHERE r.id IN :ids")
+    @Query("UPDATE AudioResource r SET r.isDeleted = true WHERE r.id IN :ids")
     void softDeleteByIdIn(@Param("ids") List<Long> ids);
 
 }

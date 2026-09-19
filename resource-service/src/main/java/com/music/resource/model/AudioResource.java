@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Resource {
+public class AudioResource {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
