@@ -5,9 +5,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.music.common.advice.BaseExceptionHandler;
+import com.music.common.advice.ErrorResponseFactory;
 import com.music.common.dto.ErrorResponse;
 import com.music.song.exception.MetadataWithIdExistException;
-import com.music.song.exception.ResourceNotFoundException;
+import com.music.song.exception.SongNotFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,8 +16,13 @@ import lombok.extern.slf4j.Slf4j;
 @RestControllerAdvice(basePackages = "com.music.song.controller")
 public class ControllerAdvice extends BaseExceptionHandler {
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException e) {
+
+    public ControllerAdvice(ErrorResponseFactory responseFactory) {
+        super(responseFactory);
+    }
+
+    @ExceptionHandler(SongNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(SongNotFoundException e) {
         log.warn("Resource not found. service: {}, code: {}, message: {}",
                 e.getService(), e.getErrorCode(), e.buildFullMessage());
         return super.handleServiceException(e);

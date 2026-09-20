@@ -1,14 +1,13 @@
 package com.music.song.service;
 
-import java.util.List;
-
 import org.springframework.stereotype.Service;
 
+import com.music.common.validator.CSVValidator;
 import com.music.song.controller.dto.MetadataUploadDto;
 import com.music.song.controller.dto.MetadataUploadedDto;
 import com.music.song.controller.dto.SongsDeletedDto;
 import com.music.song.exception.MetadataWithIdExistException;
-import com.music.song.exception.ResourceNotFoundException;
+import com.music.song.exception.SongNotFoundException;
 import com.music.song.mapper.SongMapper;
 import com.music.song.model.MetadataDto;
 import com.music.song.model.Song;
@@ -24,13 +23,14 @@ public class SongsServiceImpl implements SongsService {
 
     private final SongMapper songMapper;
     private final SongsRepository songsRepository;
+    private final CSVValidator validator;
 
     @Override
     public MetadataUploadedDto uploadMetadata(MetadataUploadDto metadataDto) {
-        var resourceId = metadataDto.getResourceId();
+        var id = metadataDto.getId();
 
-        if (songsRepository.existsByResourceId(resourceId)) {
-            throw MetadataWithIdExistException.byId(resourceId);
+        if (songsRepository.existsById(id)) {
+            throw MetadataWithIdExistException.byId(id);
         }
 
         var song = songMapper.toEntity(metadataDto);
@@ -41,17 +41,20 @@ public class SongsServiceImpl implements SongsService {
     }
 
     @Override
-    public MetadataDto getMetadata(long resourceId) {
-        log.info("Getting song with id {}", resourceId);
-        return songsRepository.findByResourceId(resourceId)
+    public MetadataDto getMetadata(long id) {
+        log.info("Getting song with id {}", id);
+        return songsRepository.findById(id)
                 .filter(song -> !song.getIsDeleted())
                 .map(songMapper::toMetadataDto)
-                .orElseThrow(() -> ResourceNotFoundException.byId(resourceId));
+                .orElseThrow(() -> SongNotFoundException.byId(id));
     }
 
     @Override
-    public SongsDeletedDto deleteSongs(List<Long> resourceIds) {
-        var existingIds = songsRepository.findAllByResourceIdInAndNotDeleted(resourceIds).stream()
+    public SongsDeletedDto deleteSongs(String rawIds) {
+        var ids = validator.parseAndValidateIds(rawIds);
+        log.info("Delete songs by id's: [{}]", ids);
+
+        var existingIds = songsRepository.findAllByIdInAndNotDeleted(ids).stream()
                 .map(Song::getId)
                 .toList();
 
@@ -59,7 +62,7 @@ public class SongsServiceImpl implements SongsService {
             songsRepository.softDeleteByIdIn(existingIds);
         }
 
-        log.info("delete resources: {}", existingIds);
+        log.info("Resources deleted id's: [{}]", existingIds);
         return SongsDeletedDto.builder()
                 .ids(existingIds)
                 .build();

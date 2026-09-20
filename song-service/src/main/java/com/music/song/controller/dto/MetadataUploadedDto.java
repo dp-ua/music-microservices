@@ -8,6 +8,5 @@ import lombok.Data;
 public class MetadataUploadedDto {
 
     private Long id;
-    private Long resourceId;
 
 }

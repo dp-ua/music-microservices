@@ -13,7 +13,6 @@ import com.music.song.model.Song;
 @Mapper(componentModel = SPRING)
 public interface SongMapper {
 
-    @Mapping(target = "id", ignore = true)
     @Mapping(target = "isDeleted", constant = "false")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

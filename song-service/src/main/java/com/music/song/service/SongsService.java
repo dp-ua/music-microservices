@@ -1,7 +1,5 @@
 package com.music.song.service;
 
-import java.util.List;
-
 import com.music.song.controller.dto.MetadataUploadDto;
 import com.music.song.controller.dto.MetadataUploadedDto;
 import com.music.song.controller.dto.SongsDeletedDto;
@@ -13,8 +11,8 @@ public interface SongsService {
 
     MetadataUploadedDto uploadMetadata(@Valid MetadataUploadDto metadataDto);
 
-    MetadataDto getMetadata(long resourceId);
+    MetadataDto getMetadata(long id);
 
-    SongsDeletedDto deleteSongs(List<Long> ids);
+    SongsDeletedDto deleteSongs(String ids);
 
 }
