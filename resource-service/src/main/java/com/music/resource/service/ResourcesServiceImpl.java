@@ -63,7 +63,7 @@ public class ResourcesServiceImpl implements ResourcesService {
         if (!existingIds.isEmpty()) {
             resourcesRepository.softDeleteByIdIn(existingIds);
         }
-        log.info("delete resources: {}", existingIds);
+        log.info("Resources deleted: {}", existingIds);
         return ResourcesDeletedDto.builder()
                 .ids(existingIds)
                 .build();
