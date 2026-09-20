@@ -55,6 +55,7 @@ public class ResourcesServiceImpl implements ResourcesService {
     }
 
     @Override
+    @Transactional
     public ResourcesDeletedDto deleteResources(String id) {
         var ids = validator.parseAndValidateIds(id);
 
@@ -64,7 +65,9 @@ public class ResourcesServiceImpl implements ResourcesService {
 
         if (!existingIds.isEmpty()) {
             resourcesRepository.softDeleteByIdIn(existingIds);
+            songServiceClientProxy.delete(existingIds);
         }
+
         log.info("Resource deleted ids: {}", existingIds);
         return ResourcesDeletedDto.builder()
                 .ids(existingIds)
