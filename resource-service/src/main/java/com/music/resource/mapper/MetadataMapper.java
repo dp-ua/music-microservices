@@ -10,6 +10,6 @@ import com.music.resource.model.MetadataDto;
 @Mapper(componentModel = SPRING)
 public interface MetadataMapper {
 
-    ClientMetadataUploadDto toClientDtoWithCorrelationId(MetadataDto metadata, Long resourceId);
+    ClientMetadataUploadDto toClientDtoWithResourceId(MetadataDto metadata, Long resourceId);
 
 }

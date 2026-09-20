@@ -3,7 +3,10 @@ package com.music.resource.client.song;
 import org.springframework.stereotype.Service;
 
 import com.music.resource.client.song.dto.ClientMetadataUploadDto;
+import com.music.resource.exception.MetadataUploadException;
 
+import feign.FeignException;
+import feign.RetryableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,9 +23,10 @@ public class SongServiceClientProxyImpl implements SongServiceClientProxy {
         try {
             songServiceClient.uploadMetadata(clientDto);
             log.info("Metadata uploaded successfully for resourceId: {}", clientDto.getResourceId());
-        } catch (feign.RetryableException e) {
-            log.error("song-service not available. Metadata not uploaded. resourceId: {}, reason: {}", clientDto.getResourceId(), e.getMessage());
-            // TODO: should be thrown own error
+        } catch (RetryableException e) {
+            throw MetadataUploadException.unavailable(clientDto.getResourceId(), e);
+        } catch (FeignException e) {
+            throw MetadataUploadException.upstreamError(clientDto.getResourceId(), e);
         }
     }
 

@@ -3,6 +3,7 @@ package com.music.resource.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.music.resource.client.song.SongServiceClientProxy;
@@ -30,11 +31,13 @@ public class ResourcesServiceImpl implements ResourcesService {
     private final ResourcesRepository resourcesRepository;
 
     @Override
+    @Transactional
     public ResourceUploadedDto uploadResource(MultipartFile file) {
         var resourceId = saveFileToRepository(file);
         var metadata = MetadataUtilParser.parseMetadata(file);
-        var clientDto = metadataMapper.toClientDtoWithCorrelationId(metadata, resourceId);
+        var clientDto = metadataMapper.toClientDtoWithResourceId(metadata, resourceId);
 
+        log.info("Try to send metadata to song-service. DTO: {}", clientDto);
         songServiceClientProxy.uploadMetadata(clientDto);
 
         log.info("Resource uploaded with id: {}", resourceId);

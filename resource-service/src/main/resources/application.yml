@@ -26,4 +26,4 @@ services:
     song-service-client:
       base-url: http://localhost:8082
       urls:
-        post-metadata: api/v1/metadata
+        post-metadata: api/v1/songs
