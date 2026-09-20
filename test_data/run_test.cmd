@@ -1,0 +1,1 @@
+newman run introduction_to_microservices.postman_collection.json
