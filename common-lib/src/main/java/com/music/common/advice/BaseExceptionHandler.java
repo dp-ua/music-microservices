@@ -21,8 +21,6 @@ public class BaseExceptionHandler {
 
     @ExceptionHandler(BaseServiceException.class)
     public ResponseEntity<ErrorResponse> handleServiceException(BaseServiceException ex) {
-        log.warn("Service exception: {}", ex.buildFullMessage());
-
         var response = ErrorResponse.builder()
                 .errorMessage(ex.buildFullMessage())
                 .errorCode(ex.getErrorCode())
