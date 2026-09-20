@@ -1,11 +1,10 @@
 package com.music.resource.service;
 
-import java.util.List;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.music.common.validator.CSVValidator;
 import com.music.resource.client.song.SongServiceClientProxy;
 import com.music.resource.controller.dto.ResourceUploadedDto;
 import com.music.resource.controller.dto.ResourcesDeletedDto;
@@ -29,13 +28,14 @@ public class ResourcesServiceImpl implements ResourcesService {
     private final MetadataMapper metadataMapper;
     private final ResourceMapper resourceMapper;
     private final ResourcesRepository resourcesRepository;
+    private final CSVValidator validator;
 
     @Override
     @Transactional
     public ResourceUploadedDto uploadResource(MultipartFile file) {
         var resourceId = saveFileToRepository(file);
         var metadata = MetadataUtilParser.parseMetadata(file);
-        var clientDto = metadataMapper.toClientDtoWithResourceId(metadata, resourceId);
+        var clientDto = metadataMapper.toClientDtoWithId(metadata, resourceId);
 
         log.info("Try to send metadata to song-service. DTO: {}", clientDto);
         songServiceClientProxy.uploadMetadata(clientDto);
@@ -55,7 +55,9 @@ public class ResourcesServiceImpl implements ResourcesService {
     }
 
     @Override
-    public ResourcesDeletedDto deleteResources(List<Long> ids) {
+    public ResourcesDeletedDto deleteResources(String id) {
+        var ids = validator.parseAndValidateIds(id);
+
         var existingIds = resourcesRepository.findAllByIdInAndNotDeleted(ids).stream()
                 .map(AudioResource::getId)
                 .toList();
@@ -63,7 +65,7 @@ public class ResourcesServiceImpl implements ResourcesService {
         if (!existingIds.isEmpty()) {
             resourcesRepository.softDeleteByIdIn(existingIds);
         }
-        log.info("Resources deleted: {}", existingIds);
+        log.info("Resource deleted ids: {}", existingIds);
         return ResourcesDeletedDto.builder()
                 .ids(existingIds)
                 .build();

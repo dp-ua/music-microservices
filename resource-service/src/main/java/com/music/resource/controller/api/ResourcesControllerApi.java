@@ -1,7 +1,5 @@
 package com.music.resource.controller.api;
 
-import java.util.List;
-
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +13,7 @@ import com.music.resource.validation.ValidMp3File;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 
 @Tag(name = "Resource Controller Api")
 public interface ResourcesControllerApi {
@@ -28,11 +27,11 @@ public interface ResourcesControllerApi {
     @ApiResponse(responseCode = "200", description = "Resource retrieved successfully")
     @ApiResponse(responseCode = "400", description = "Bad request")
     @ApiResponse(responseCode = "404", description = "Resource not found")
-    ResponseEntity<Resource> getResource(@PathVariable Long id);
+    ResponseEntity<Resource> getResource(@PathVariable @Positive Long id);
 
     @Operation(summary = "Delete resources")
     @ApiResponse(responseCode = "200", description = "Request successful, resources deleted as specified")
     @ApiResponse(responseCode = "400", description = "Bad request")
-    ResponseEntity<ResourcesDeletedDto> deleteResources(@RequestParam List<Long> ids);
+    ResponseEntity<ResourcesDeletedDto> deleteResources(@RequestParam String id);
 
 }

@@ -1,9 +1,5 @@
 package com.music.resource.controller.v1;
 
-import static org.springframework.http.HttpStatus.CREATED;
-
-import java.util.List;
-
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -26,6 +22,7 @@ import com.music.resource.controller.dto.ResourcesDeletedDto;
 import com.music.resource.service.ResourcesService;
 import com.music.resource.validation.ValidMp3File;
 
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,14 +40,12 @@ public class ResourcesController implements ResourcesControllerApi {
     public ResponseEntity<ResourceUploadedDto> uploadResource(@RequestParam("file") @ValidMp3File MultipartFile file) {
         log.info("Upload resource. originalFilename: {}, size: {} bytes, contentType: {}",
                 file.getOriginalFilename(), file.getSize(), file.getContentType());
-        return ResponseEntity
-                .status(CREATED)
-                .body(resourcesService.uploadResource(file));
+        return ResponseEntity.ok(resourcesService.uploadResource(file));
     }
 
     @Override
     @GetMapping(path = "/{id}")
-    public ResponseEntity<Resource> getResource(@PathVariable Long id) {
+    public ResponseEntity<Resource> getResource(@PathVariable @Positive Long id) {
         var content = resourcesService.getResource(id);
         var resource = new ByteArrayResource(content.getFileData());
 
@@ -65,9 +60,9 @@ public class ResourcesController implements ResourcesControllerApi {
 
     @Override
     @DeleteMapping
-    public ResponseEntity<ResourcesDeletedDto> deleteResources(@RequestParam List<Long> ids) {
-        log.info("Delete resources. ids: {}", ids);
-        return ResponseEntity.ok(resourcesService.deleteResources(ids));
+    public ResponseEntity<ResourcesDeletedDto> deleteResources(@RequestParam String id) {
+        log.info("Delete resources. id: [{}]", id);
+        return ResponseEntity.ok(resourcesService.deleteResources(id));
     }
 
 }

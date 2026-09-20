@@ -15,6 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 @UtilityClass
 public class MetadataUtilParser {
 
+    private static final String DURATION_FORMAT = "%02d:%02d";
+    private static final String YEAR_PATTERN = "(\\d{4})";
+
     public MetadataDto parseMetadata(MultipartFile file) {
         File tempFile = null;
         try {
@@ -39,7 +42,7 @@ public class MetadataUtilParser {
 
     private MetadataDto extractMetadata(Mp3File mp3File, String originalFilename) {
         var metadata = MetadataDto.builder()
-                .duration(String.valueOf(mp3File.getLengthInSeconds()))
+                .duration(formatDuration(mp3File))
                 .build();
 
         if (mp3File.hasId3v2Tag()) {
@@ -47,13 +50,13 @@ public class MetadataUtilParser {
             metadata.setName(id3v2.getTitle());
             metadata.setArtist(id3v2.getArtist());
             metadata.setAlbum(id3v2.getAlbum());
-            metadata.setYear(id3v2.getYear());
+            metadata.setYear(normalizeYear(id3v2.getYear()));
         } else if (mp3File.hasId3v1Tag()) {
             var id3v1 = mp3File.getId3v1Tag();
             metadata.setName(id3v1.getTitle());
             metadata.setArtist(id3v1.getArtist());
             metadata.setAlbum(id3v1.getAlbum());
-            metadata.setYear(id3v1.getYear());
+            metadata.setYear(normalizeYear(id3v1.getYear()));
         }
 
         if (metadata.getName() == null || metadata.getName().isEmpty()) {
@@ -62,6 +65,29 @@ public class MetadataUtilParser {
         }
 
         return metadata;
+    }
+
+    private String formatDuration(Mp3File mp3File) {
+        long totalSeconds = mp3File.getLengthInSeconds();
+        long minutes = totalSeconds / 60;
+        long seconds = totalSeconds % 60;
+        return String.format(DURATION_FORMAT, minutes, seconds);
+    }
+
+    private String normalizeYear(String rawYear) {
+        if (rawYear == null || rawYear.isBlank()) {
+            return null;
+        }
+        // вытаскиваем первые 4 цифры
+        var matcher = java.util.regex.Pattern.compile(YEAR_PATTERN).matcher(rawYear);
+        if (!matcher.find()) {
+            return null;
+        }
+        int year = Integer.parseInt(matcher.group(1));
+        if (year < 1900 || year > 2099) {
+            return null;
+        }
+        return String.valueOf(year);
     }
 
 }

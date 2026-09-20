@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ClientMetadataUploadDto {
 
-    private Long resourceId;
+    private Long id;
     private String name;
     private String artist;
     private String album;

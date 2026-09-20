@@ -5,7 +5,7 @@ import com.music.common.exception.BaseServiceException;
 
 public class ResourceNotFoundException extends BaseServiceException {
 
-    private static final String RESOURCE_NOT_FOUND_BY_ID = "Resource with ID %d not found";
+    private static final String RESOURCE_NOT_FOUND_BY_ID = "Resource with ID=%d not found";
 
     private ResourceNotFoundException(String message) {
         super(ServiceType.RESOURCE_SERVICE, "404", message);
