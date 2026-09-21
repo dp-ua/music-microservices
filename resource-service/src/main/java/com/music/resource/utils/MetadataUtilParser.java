@@ -2,8 +2,6 @@ package com.music.resource.utils;
 
 import java.io.File;
 
-import org.springframework.web.multipart.MultipartFile;
-
 import com.mpatric.mp3agic.Mp3File;
 import com.music.resource.exception.ResourceException;
 import com.music.resource.model.MetadataDto;
@@ -18,23 +16,23 @@ public class MetadataUtilParser {
     private static final String DURATION_FORMAT = "%02d:%02d";
     private static final String YEAR_PATTERN = "(\\d{4})";
 
-    public MetadataDto parseMetadata(MultipartFile file) {
+    public MetadataDto parseMetadata(byte[] fileData) {
         File tempFile = null;
         try {
-            tempFile = Mp3FileProcessingUtil.createTempFileFromMultipart(
-                    file,
+            tempFile = Mp3FileProcessingUtil.createTempFileFromBytes(
+                    fileData,
                     Mp3ProcessingConstants.TEMP_FILE_PREFIX_PARSE
             );
 
             var mp3File = Mp3FileProcessingUtil.parseMp3File(tempFile);
-            var metadata = extractMetadata(mp3File, file.getOriginalFilename());
+            var metadata = extractMetadata(mp3File, null);
 
             log.info("Metadata successfully parsed: {}", metadata);
             return metadata;
 
         } catch (Exception e) {
             log.error("Parse metadata error: ", e);
-            throw ResourceException.canTReadFileData(file.getOriginalFilename(), e);
+            throw ResourceException.canTReadFileData("unknown", e);
         } finally {
             Mp3FileProcessingUtil.deleteTempFile(tempFile);
         }

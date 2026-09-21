@@ -2,7 +2,6 @@ package com.music.resource.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.music.common.validator.CSVValidator;
 import com.music.resource.client.song.SongServiceClientProxy;
@@ -32,9 +31,9 @@ public class ResourcesServiceImpl implements ResourcesService {
 
     @Override
     @Transactional
-    public ResourceUploadedDto uploadResource(MultipartFile file) {
-        var resourceId = saveFileToRepository(file);
-        var metadata = MetadataUtilParser.parseMetadata(file);
+    public ResourceUploadedDto uploadResource(byte[] fileData) {
+        var resourceId = saveFileToRepository(fileData);
+        var metadata = MetadataUtilParser.parseMetadata(fileData);
         var clientDto = metadataMapper.toClientDtoWithId(metadata, resourceId);
 
         log.info("Try to send metadata to song-service. DTO: {}", clientDto);
@@ -74,24 +73,15 @@ public class ResourcesServiceImpl implements ResourcesService {
                 .build();
     }
 
-    private Long saveFileToRepository(MultipartFile file) {
-        var fileName = file.getOriginalFilename();
-        var fileSize = file.getSize();
-        var contentType = file.getContentType();
-
-        byte[] fileData;
-        try {
-            fileData = file.getBytes();
-        } catch (Exception e) {
-            throw ResourceException.canTReadFileData(fileName, e);
+    private Long saveFileToRepository(byte[] fileData) {
+        if (fileData == null || fileData.length == 0) {
+            throw ResourceException.fileIsEmpty("unknown");
         }
 
-        if (fileData.length == 0) {
-            throw ResourceException.fileIsEmpty(fileName);
-        }
+        var fileSize = (long) fileData.length;
 
         return resourcesRepository
-                .save(resourceMapper.toEntity(fileName, fileData, fileSize, contentType))
+                .save(resourceMapper.toEntity(fileData, fileSize))
                 .getId();
     }
 

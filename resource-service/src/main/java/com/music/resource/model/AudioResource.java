@@ -28,17 +28,11 @@ public class AudioResource {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "file_name", nullable = false)
-    private String fileName;
-
     @Column(name = "file_data", nullable = false, columnDefinition = "BYTEA")
     private byte[] fileData;
 
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
-
-    @Column(name = "content_type", nullable = false)
-    private String contentType;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

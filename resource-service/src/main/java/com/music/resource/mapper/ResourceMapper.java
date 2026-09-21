@@ -14,6 +14,6 @@ public interface ResourceMapper {
     @Mapping(target = "isDeleted", constant = "false")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    AudioResource toEntity(String fileName, byte[] fileData, Long fileSize, String contentType);
+    AudioResource toEntity(byte[] fileData, Long fileSize);
 
 }
