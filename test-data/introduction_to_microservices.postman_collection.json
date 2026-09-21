@@ -173,7 +173,7 @@
 						"body": {
 							"mode": "file",
 							"file": {
-								"src": ""
+								"src": "valid-sample-with-required-tags.mp3"
 							}
 						},
 						"url": {
@@ -2507,7 +2507,7 @@
 								"body": {
 									"mode": "file",
 									"file": {
-										"src": ""
+										"src": "valid-sample-with-required-tags.mp3"
 									}
 								},
 								"url": {
