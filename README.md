@@ -12,14 +12,14 @@ database.
 └──────────────────────┬──────────────────────────────────────┘
                        │
           ┌────────────▼────────────┐
-          │    Resource Service     │  :8081
+          │    Resource Service     │  :8080
           │   (stores MP3 files)    │
           │                         │
           │  DB: resource_service   │
           └────────────┬────────────┘
                        │ OpenFeign (HTTP)
           ┌────────────▼────────────┐
-          │      Song Service       │  :8082
+          │      Song Service       │  :8081
           │  (stores metadata)      │
           │                         │
           │  DB: song_service       │
@@ -63,7 +63,7 @@ own records first, then calls `DELETE /songs?id=...` on `song-service`.
 
 ## API
 
-### Resource Service (`http://localhost:8081`)
+### Resource Service (`http://localhost:8080`)
 
 | Method   | URL                        | Description                                            |
 |----------|----------------------------|--------------------------------------------------------|
@@ -71,10 +71,10 @@ own records first, then calls `DELETE /songs?id=...` on `song-service`.
 | `GET`    | `/resources/{id}`   | Download MP3 binary data by ID                         |
 | `DELETE` | `/resources?id=...` | Delete resources by a comma-separated list of IDs      |
 
-Swagger UI: `http://localhost:8081/swagger-ui/index.html`  
-H2 Console (dev): `http://localhost:8081/h2-console`
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`  
+H2 Console (dev): `http://localhost:8080/h2-console`
 
-### Song Service (`http://localhost:8082`)
+### Song Service (`http://localhost:8081`)
 
 | Method   | URL                    | Description                                      |
 |----------|------------------------|--------------------------------------------------|
@@ -82,8 +82,8 @@ H2 Console (dev): `http://localhost:8081/h2-console`
 | `GET`    | `/songs/{id}`   | Get track metadata by ID                         |
 | `DELETE` | `/songs?id=...` | Delete metadata by a comma-separated list of IDs |
 
-Swagger UI: `http://localhost:8082/swagger-ui/index.html`  
-H2 Console (dev): `http://localhost:8082/h2-console`
+Swagger UI: `http://localhost:8081/swagger-ui/index.html`  
+H2 Console (dev): `http://localhost:8081/h2-console`
 
 ### Metadata Format
 

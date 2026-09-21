@@ -164,16 +164,18 @@
 					],
 					"request": {
 						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "audio/mpeg"
+							}
+						],
 						"body": {
-    "mode": "formdata",
-    "formdata": [
-        {
-            "key": "file",
-            "type": "file",
-            "src": "valid-sample-with-required-tags.mp3"
-        }
-    ]
-},
+							"mode": "file",
+							"file": {
+								"src": ""
+							}
+						},
 						"url": {
 							"raw": "{{resource_service_url}}/resources",
 							"host": [
@@ -2496,16 +2498,18 @@
 							],
 							"request": {
 								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "audio/mpeg"
+									}
+								],
 								"body": {
-    "mode": "formdata",
-    "formdata": [
-        {
-            "key": "file",
-            "type": "file",
-            "src": "valid-sample-with-required-tags.mp3"
-        }
-    ]
-},
+									"mode": "file",
+									"file": {
+										"src": ""
+									}
+								},
 								"url": {
 									"raw": "{{resource_service_url}}/resources",
 									"host": [
@@ -3443,12 +3447,12 @@
 		},
 		{
 			"key": "resource_service_url",
-			"value": "http://localhost:8081",
+			"value": "http://localhost:8080",
 			"type": "string"
 		},
 		{
 			"key": "song_service_url",
-			"value": "http://localhost:8082",
+			"value": "http://localhost:8081",
 			"type": "string"
 		}
 	]
