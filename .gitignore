@@ -1,8 +1,5 @@
 # Gradle
 .gradle/
-gradlew
-gradlew.bat
-gradle/
 build/
 
 # IDE
