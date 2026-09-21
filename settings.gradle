@@ -1,6 +1,4 @@
 rootProject.name = 'music-microservices'
 
-include 'common-lib'
-
 include 'resource-service'
 include 'song-service'

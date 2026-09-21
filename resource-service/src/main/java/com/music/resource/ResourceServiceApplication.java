@@ -5,10 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @EnableFeignClients
-@SpringBootApplication(scanBasePackages = {
-        "com.music.resource",
-        "com.music.common"
-})
+@SpringBootApplication
 public class ResourceServiceApplication {
 
     public static void main(String[] args) {

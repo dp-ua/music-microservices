@@ -2,7 +2,7 @@ package com.music.song.service;
 
 import org.springframework.stereotype.Service;
 
-import com.music.common.validator.CSVValidator;
+import com.music.song.validator.CSVValidator;
 import com.music.song.controller.dto.MetadataUploadDto;
 import com.music.song.controller.dto.MetadataUploadedDto;
 import com.music.song.controller.dto.SongsDeletedDto;

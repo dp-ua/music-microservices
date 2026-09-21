@@ -1,7 +1,5 @@
 package com.music.resource.exception;
 
-import com.music.common.enums.ServiceType;
-import com.music.common.exception.BaseServiceException;
 import com.music.resource.client.song.SongOperation;
 
 public class SongServerException extends BaseServiceException {
@@ -12,7 +10,7 @@ public class SongServerException extends BaseServiceException {
             "song-service returned an error: cannot %s ids=%s";
 
     private SongServerException(String message, String code, Throwable cause) {
-        super(ServiceType.RESOURCE_SERVICE, code, message, cause);
+        super(code, message, cause);
     }
 
     public static SongServerException unavailable(SongOperation op, String ids, Throwable cause) {

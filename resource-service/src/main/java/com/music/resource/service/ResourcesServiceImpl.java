@@ -3,7 +3,7 @@ package com.music.resource.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.music.common.validator.CSVValidator;
+import com.music.resource.validator.CSVValidator;
 import com.music.resource.client.song.SongServiceClientProxy;
 import com.music.resource.controller.dto.ResourceUploadedDto;
 import com.music.resource.controller.dto.ResourcesDeletedDto;

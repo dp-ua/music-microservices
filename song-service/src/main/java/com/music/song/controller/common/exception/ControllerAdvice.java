@@ -4,9 +4,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.music.common.advice.BaseExceptionHandler;
-import com.music.common.advice.ErrorResponseFactory;
-import com.music.common.dto.ErrorResponse;
+import com.music.song.advice.BaseExceptionHandler;
+import com.music.song.advice.ErrorResponseFactory;
+import com.music.song.dto.ErrorResponse;
 import com.music.song.exception.MetadataWithIdExistException;
 import com.music.song.exception.SongNotFoundException;
 
@@ -23,15 +23,13 @@ public class ControllerAdvice extends BaseExceptionHandler {
 
     @ExceptionHandler(SongNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(SongNotFoundException e) {
-        log.warn("Resource not found. service: {}, code: {}, message: {}",
-                e.getService(), e.getErrorCode(), e.buildFullMessage());
+        log.warn("Resource not found. code: {}, message: {}", e.getErrorCode(), e.buildFullMessage());
         return super.handleServiceException(e);
     }
 
     @ExceptionHandler(MetadataWithIdExistException.class)
     public ResponseEntity<ErrorResponse> handleMetadataWithIdExistException(MetadataWithIdExistException e) {
-        log.warn("Metadata with same ID already exists. service: {}, code: {}, message: {}",
-                e.getService(), e.getErrorCode(), e.buildFullMessage());
+        log.warn("Metadata with same ID already exists. code: {}, message: {}", e.getErrorCode(), e.buildFullMessage());
         return super.handleServiceException(e);
     }
 
