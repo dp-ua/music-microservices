@@ -1,18 +1,17 @@
 spring:
   application:
     name: resource-service
+
   datasource:
-    url: jdbc:h2:mem:music_db;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: admin
-    password:
-  h2:
-    console:
-      enabled: true
+    url: jdbc:postgresql://localhost:5433/resource_service
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: postgres
+
   jpa:
     hibernate:
-      ddl-auto: create
-    database-platform: org.hibernate.dialect.H2Dialect
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: false
     properties:
       hibernate:
@@ -26,5 +25,5 @@ services:
     song-service-client:
       base-url: http://localhost:8082
       urls:
-        post-metadata: api/v1/songs
-        delete-metadata: api/v1/songs
+        post-metadata: /songs
+        delete-metadata: /songs

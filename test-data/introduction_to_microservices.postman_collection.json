@@ -3443,12 +3443,12 @@
 		},
 		{
 			"key": "resource_service_url",
-			"value": "http://localhost:8081/api/v1",
+			"value": "http://localhost:8081",
 			"type": "string"
 		},
 		{
 			"key": "song_service_url",
-			"value": "http://localhost:8082/api/v1",
+			"value": "http://localhost:8082",
 			"type": "string"
 		}
 	]

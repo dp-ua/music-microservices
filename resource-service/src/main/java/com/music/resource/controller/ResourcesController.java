@@ -1,4 +1,4 @@
-package com.music.resource.controller.v1;
+package com.music.resource.controller;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(value = "/api/v1/resources")
+@RequestMapping(value = "/resources")
 @Validated
 @Slf4j
 public class ResourcesController implements ResourcesControllerApi {

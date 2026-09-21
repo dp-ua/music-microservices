@@ -1,4 +1,4 @@
-package com.music.song.controller.v1;
+package com.music.song.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(value = "/api/v1/songs")
+@RequestMapping(value = "/songs")
 @Validated
 @Slf4j
 public class SongsController implements SongsControllerApi {

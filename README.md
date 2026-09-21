@@ -43,11 +43,11 @@ When an MP3 file is uploaded, `resource-service` executes the following chain:
 1. Validates the file (`.mp3` extension, not empty).
 2. Saves the binary data to its own DB (table `resources`).
 3. Parses ID3 tags (v1 / v2) using the `mp3agic` library.
-4. Sends the metadata to `song-service` via **OpenFeign** (`POST /api/v1/songs`).
+4. Sends the metadata to `song-service` via **OpenFeign** (`POST /songs`).
 5. Returns the saved resource `id` to the client.
 
 When resources are deleted, both services perform a **soft delete** (`is_deleted = true`). `resource-service` marks its
-own records first, then calls `DELETE /api/v1/songs?id=...` on `song-service`.
+own records first, then calls `DELETE /songs?id=...` on `song-service`.
 
 > **Important:** The record ID in `song-service` matches the resource ID in `resource-service`. This is the linking key
 > between the two databases.
@@ -67,9 +67,9 @@ own records first, then calls `DELETE /api/v1/songs?id=...` on `song-service`.
 
 | Method   | URL                        | Description                                            |
 |----------|----------------------------|--------------------------------------------------------|
-| `POST`   | `/api/v1/resources`        | Upload an MP3 file (multipart/form-data, field `file`) |
-| `GET`    | `/api/v1/resources/{id}`   | Download MP3 binary data by ID                         |
-| `DELETE` | `/api/v1/resources?id=...` | Delete resources by a comma-separated list of IDs      |
+| `POST`   | `/resources`        | Upload an MP3 file (multipart/form-data, field `file`) |
+| `GET`    | `/resources/{id}`   | Download MP3 binary data by ID                         |
+| `DELETE` | `/resources?id=...` | Delete resources by a comma-separated list of IDs      |
 
 Swagger UI: `http://localhost:8081/swagger-ui/index.html`  
 H2 Console (dev): `http://localhost:8081/h2-console`
@@ -78,9 +78,9 @@ H2 Console (dev): `http://localhost:8081/h2-console`
 
 | Method   | URL                    | Description                                      |
 |----------|------------------------|--------------------------------------------------|
-| `POST`   | `/api/v1/songs`        | Save track metadata (called by resource-service) |
-| `GET`    | `/api/v1/songs/{id}`   | Get track metadata by ID                         |
-| `DELETE` | `/api/v1/songs?id=...` | Delete metadata by a comma-separated list of IDs |
+| `POST`   | `/songs`        | Save track metadata (called by resource-service) |
+| `GET`    | `/songs/{id}`   | Get track metadata by ID                         |
+| `DELETE` | `/songs?id=...` | Delete metadata by a comma-separated list of IDs |
 
 Swagger UI: `http://localhost:8082/swagger-ui/index.html`  
 H2 Console (dev): `http://localhost:8082/h2-console`
@@ -152,7 +152,7 @@ gradle :resource-service:bootRun :song-service:bootRun --parallel
 | `resource-db` | `resource_service` | `5433`    | `postgres/postgres` |
 | `song-db`     | `song_service`     | `5434`    | `postgres/postgres` |
 
-> The `docker` profile configuration lives in `application-docker.yml` in each service.
+> The `docker` profile configuration lives in `application-h2.yml` in each service.
 
 ---
 
