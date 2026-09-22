@@ -30,7 +30,6 @@ database.
 
 | Module             | Description                                                                |
 |--------------------|----------------------------------------------------------------------------|
-| `common-lib`       | Shared library: error handling, CSV validation, base exceptions            |
 | `resource-service` | Accepts MP3 files, parses ID3 tags, stores binary data, calls song-service |
 | `song-service`     | Stores track metadata (title, artist, album, duration, year)               |
 
@@ -65,8 +64,8 @@ own records first, then calls `DELETE /songs?id=...` on `song-service`.
 
 ### Resource Service (`http://localhost:8080`)
 
-| Method   | URL                        | Description                                            |
-|----------|----------------------------|--------------------------------------------------------|
+| Method   | URL                 | Description                                            |
+|----------|---------------------|--------------------------------------------------------|
 | `POST`   | `/resources`        | Upload an MP3 file (multipart/form-data, field `file`) |
 | `GET`    | `/resources/{id}`   | Download MP3 binary data by ID                         |
 | `DELETE` | `/resources?id=...` | Delete resources by a comma-separated list of IDs      |
@@ -76,8 +75,8 @@ H2 Console (dev): `http://localhost:8080/h2-console`
 
 ### Song Service (`http://localhost:8081`)
 
-| Method   | URL                    | Description                                      |
-|----------|------------------------|--------------------------------------------------|
+| Method   | URL             | Description                                      |
+|----------|-----------------|--------------------------------------------------|
 | `POST`   | `/songs`        | Save track metadata (called by resource-service) |
 | `GET`    | `/songs/{id}`   | Get track metadata by ID                         |
 | `DELETE` | `/songs?id=...` | Delete metadata by a comma-separated list of IDs |
@@ -173,8 +172,7 @@ database. A `GET` request for a deleted record returns 404.
 
 ### CSV Validation on Delete
 
-The `id` parameter in DELETE requests accepts a comma-separated list (e.g. `1,2,3`). Constraints enforced by
-`common-lib`:
+The `id` parameter in DELETE requests accepts a comma-separated list (e.g. `1,2,3`).
 
 - Cannot be blank
 - Maximum string length: 200 characters
