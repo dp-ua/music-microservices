@@ -4,15 +4,15 @@ services:
     image: postgres:16-alpine
     container_name: resource-db
     environment:
-      POSTGRES_DB: resource_service
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${RESOURCE_DB_NAME}
+      POSTGRES_USER: ${RESOURCE_DB_USER}
+      POSTGRES_PASSWORD: ${RESOURCE_DB_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
-      - resource-db-data:/var/lib/postgresql/data
+      - ./init-scripts/resource-db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d resource_service"]
+      test: ["CMD-SHELL", "pg_isready -U ${RESOURCE_DB_USER} -d ${RESOURCE_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,15 +21,15 @@ services:
     image: postgres:16-alpine
     container_name: song-db
     environment:
-      POSTGRES_DB: song_service
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${SONG_DB_NAME}
+      POSTGRES_USER: ${SONG_DB_USER}
+      POSTGRES_PASSWORD: ${SONG_DB_PASSWORD}
     ports:
       - "5434:5432"
     volumes:
-      - song-db-data:/var/lib/postgresql/data
+      - ./init-scripts/song-db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d song_service"]
+      test: ["CMD-SHELL", "pg_isready -U ${SONG_DB_USER} -d ${SONG_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -42,10 +42,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://resource-db:5432/resource_service
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SERVICES_CONFIG_SONG-SERVICE-CLIENT_BASE-URL: http://song-service:8081
+      SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${RESOURCE_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${RESOURCE_DB_PASSWORD}
+      SERVICES_CONFIG_SONG-SERVICE-CLIENT_BASE-URL: ${SONG_SERVICE_URL}
     depends_on:
       resource-db:
         condition: service_healthy
@@ -60,13 +60,9 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://song-db:5432/song_service
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: ${SONG_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${SONG_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${SONG_DB_PASSWORD}
     depends_on:
       song-db:
         condition: service_healthy
-
-volumes:
-  resource-db-data:
-  song-db-data:
