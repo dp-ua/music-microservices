@@ -1,5 +1,18 @@
 services:
 
+  eureka-server:
+    build:
+      context: .
+      dockerfile: eureka-server/Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   resource-db:
     image: postgres:16-alpine
     container_name: resource-db
@@ -45,24 +58,26 @@ services:
       SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${RESOURCE_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${RESOURCE_DB_PASSWORD}
-      SERVICES_CONFIG_SONG-SERVICE-CLIENT_BASE-URL: ${SONG_SERVICE_URL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       resource-db:
         condition: service_healthy
-      song-service:
-        condition: service_started
+      eureka-server:
+        condition: service_healthy
 
   song-service:
     build:
       context: .
       dockerfile: song-service/Dockerfile
-    container_name: song-service
     ports:
-      - "8081:8081"
+      - "8081-8082:8081"
     environment:
       SPRING_DATASOURCE_URL: ${SONG_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${SONG_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${SONG_DB_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       song-db:
+        condition: service_healthy
+      eureka-server:
         condition: service_healthy

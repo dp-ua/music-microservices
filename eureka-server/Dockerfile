@@ -18,11 +18,11 @@ COPY eureka-server/build.gradle eureka-server/build.gradle
 RUN sed -i 's/\r//' gradlew && chmod +x gradlew
 
 # Download dependencies (cached as a separate layer)
-RUN ./gradlew :resource-service:dependencies --no-daemon
+RUN ./gradlew :eureka-server:dependencies --no-daemon
 
 # Copy source code and build
-COPY resource-service/src resource-service/src
-RUN ./gradlew :resource-service:assemble --no-daemon -x test
+COPY eureka-server/src eureka-server/src
+RUN ./gradlew :eureka-server:assemble --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
@@ -31,12 +31,12 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-COPY --from=build /app/resource-service/build/libs/*.jar app.jar
+COPY --from=build /app/eureka-server/build/libs/*.jar app.jar
 
 RUN chown appuser:appgroup app.jar
 
 USER appuser
 
-EXPOSE 8080
+EXPOSE 8761
 
 CMD ["java", "-jar", "app.jar"]
