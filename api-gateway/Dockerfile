@@ -19,11 +19,11 @@ COPY api-gateway/build.gradle api-gateway/build.gradle
 RUN sed -i 's/\r//' gradlew && chmod +x gradlew
 
 # Download dependencies (cached as a separate layer)
-RUN ./gradlew :song-service:dependencies --no-daemon
+RUN ./gradlew :api-gateway:dependencies --no-daemon
 
 # Copy source code and build
-COPY song-service/src song-service/src
-RUN ./gradlew :song-service:assemble --no-daemon -x test
+COPY api-gateway/src api-gateway/src
+RUN ./gradlew :api-gateway:assemble --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
@@ -32,12 +32,12 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-COPY --from=build /app/song-service/build/libs/*.jar app.jar
+COPY --from=build /app/api-gateway/build/libs/*.jar app.jar
 
 RUN chown appuser:appgroup app.jar
 
 USER appuser
 
-EXPOSE 8081
+EXPOSE 8080
 
 CMD ["java", "-jar", "app.jar"]

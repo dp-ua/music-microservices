@@ -51,9 +51,9 @@ services:
     build:
       context: .
       dockerfile: resource-service/Dockerfile
-    container_name: resource-service
-    ports:
-      - "8080:8080"
+#    container_name: resource-service
+    # No fixed port mapping — Spring picks a random port (server.port=0),
+    # Eureka registers the actual port, Gateway routes via lb://
     environment:
       SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${RESOURCE_DB_USER}
@@ -69,8 +69,7 @@ services:
     build:
       context: .
       dockerfile: song-service/Dockerfile
-    ports:
-      - "8081-8082:8081"
+    # No fixed port mapping — random port, Eureka handles discovery
     environment:
       SPRING_DATASOURCE_URL: ${SONG_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${SONG_DB_USER}
@@ -81,3 +80,21 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
