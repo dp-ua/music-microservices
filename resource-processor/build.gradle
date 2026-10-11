@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.0'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.music'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // No web layer: plain Spring Boot application
+    implementation 'org.springframework.boot:spring-boot-starter'
+
+    // Metadata extraction from mp3 files (Mp3Parser lives in the audio/video module)
+    implementation "org.apache.tika:tika-core:$tikaVersion"
+    implementation "org.apache.tika:tika-parser-audiovideo-module:$tikaVersion"
+
+    implementation 'org.apache.commons:commons-lang3'
+
+    //Lombok
+    implementation "org.projectlombok:lombok:$lombokVersion"
+    annotationProcessor "org.projectlombok:lombok"
+}
+
+tasks.named('test') {
+    enabled = false
+}
