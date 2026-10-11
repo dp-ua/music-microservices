@@ -1,52 +1,79 @@
 # Music Microservices
 
-A course project for "Introduction to Microservices". Implements two independent Spring Boot services for storing MP3
-files and their metadata. The services communicate with each other over HTTP via OpenFeign, each with its own dedicated
-database.
+A course project for "Microservices Fundamentals". Spring Boot services for storing MP3 files and their metadata.
+Files are stored in a cloud storage (S3, emulated by LocalStack), their locations in PostgreSQL. Services discover each
+other through Eureka and are reachable through a single API Gateway.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       Client / Postman                      │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-          ┌────────────▼────────────┐
-          │    Resource Service     │  :8080
-          │   (stores MP3 files)    │
-          │                         │
-          │  DB: resource_service   │
-          └────────────┬────────────┘
-                       │ OpenFeign (HTTP)
-          ┌────────────▼────────────┐
-          │      Song Service       │  :8081
-          │  (stores metadata)      │
-          │                         │
-          │  DB: song_service       │
-          └─────────────────────────┘
+Client / Postman
+       │
+       ▼
+┌──────────────────┐        ┌──────────────────┐
+│   API Gateway    │◄──────►│  Eureka Server   │  :8761
+│      :8080       │        │ (service registry)│
+└────┬────────┬────┘        └──────────────────┘
+     │        │
+     ▼        ▼
+┌─────────────────┐   DELETE only (OpenFeign)   ┌─────────────────┐
+│ Resource Service│────────────────────────────►│  Song Service   │
+│                 │                             │ (stores metadata)│
+└───┬─────────┬───┘                             └────────┬────────┘
+    │         │                                          │
+    ▼         ▼                                          ▼
+┌────────┐ ┌──────────────┐                       ┌──────────┐
+│LocalStack│ │ resource-db  │                       │ song-db  │
+│  (S3)  │ │ (location)   │                       │          │
+│ MP3 file│ └──────────────┘                       └──────────┘
+└────────┘
+
+Resource Processor: a separate Spring Boot application without a web interface;
+for now it only extracts MP3 metadata (Apache Tika) and is not called by other services.
 ```
 
 ### Modules
 
-| Module             | Description                                                                |
-|--------------------|----------------------------------------------------------------------------|
-| `resource-service` | Accepts MP3 files, parses ID3 tags, stores binary data, calls song-service |
-| `song-service`     | Stores track metadata (title, artist, album, duration, year)               |
+| Module               | Description                                                                                    |
+|----------------------|------------------------------------------------------------------------------------------------|
+| `api-gateway`        | Single entry point (`:8080`), routes `/resources/**` and `/songs/**` to services via Eureka    |
+| `eureka-server`      | Service registry (`:8761`)                                                                     |
+| `resource-service`   | Accepts MP3 files, stores them in S3, keeps their location in its DB                           |
+| `song-service`       | Stores track metadata (title, artist, album, duration, year)                                   |
+| `resource-processor` | Extracts MP3 metadata with Apache Tika. No web interface, not connected to other services yet  |
+
+Infrastructure containers: `resource-db`, `song-db` (PostgreSQL), `localstack` (S3).
 
 ---
 
 ## Service Interaction
 
-When an MP3 file is uploaded, `resource-service` executes the following chain:
+### Upload: `POST /resources`
 
-1. Validates the file (`.mp3` extension, not empty).
-2. Saves the binary data to its own DB (table `resources`).
-3. Parses ID3 tags (v1 / v2) using the `mp3agic` library.
-4. Sends the metadata to `song-service` via **OpenFeign** (`POST /songs`).
-5. Returns the saved resource `id` to the client.
+`resource-service` does **not** call any other service while uploading:
 
-When resources are deleted, both services perform a **soft delete** (`is_deleted = true`). `resource-service` marks its
-own records first, then calls `DELETE /songs?id=...` on `song-service`.
+1. Validates that the body is not empty (`Content-Type: audio/mpeg`).
+2. Stores the original MP3 in the S3 bucket under a generated key (`<uuid>.mp3`).
+3. Saves the location (`storage_bucket`, `storage_key`) and the file size in the table `resources`.
+4. Returns the resource `id`.
+
+If saving to the DB fails, the file is removed from S3. No metadata is created in `song-service`: after an upload,
+`GET /songs/{id}` returns 404 until the metadata is created (`POST /songs`).
+
+### Download: `GET /resources/{id}`
+
+The record is found in the DB, the file is read from S3 by the stored location. A missing record returns 404.
+
+### Delete: `DELETE /resources?id=1,2,3`
+
+A synchronous cleanup. For every existing resource:
+
+1. The file is removed from S3.
+2. The record is removed from the DB (physically, no soft delete in `resource-service`).
+3. `DELETE /songs?id=...` is called on `song-service` via **OpenFeign** to delete the related metadata.
+
+Unknown ids are ignored. `song-service` also ignores ids without metadata, so deleting a resource without a song is not
+an error.
 
 > **Important:** The record ID in `song-service` matches the resource ID in `resource-service`. This is the linking key
 > between the two databases.
@@ -58,31 +85,37 @@ own records first, then calls `DELETE /songs?id=...` on `song-service`.
 - `RetryableException` → HTTP 503 (service unavailable)
 - `FeignException` → HTTP 502 (error on the song-service side)
 
+### Storage Error Handling
+
+`S3FileStorage` wraps S3 errors into `StorageException`:
+
+- object not found → HTTP 404
+- any other S3 error → HTTP 500
+
 ---
 
 ## API
 
-### Resource Service (`http://localhost:8080`)
+All requests go through the API Gateway: `http://localhost:8080`.
 
-| Method   | URL                 | Description                                            |
-|----------|---------------------|--------------------------------------------------------|
-| `POST`   | `/resources`        | Upload an MP3 file (multipart/form-data, field `file`) |
-| `GET`    | `/resources/{id}`   | Download MP3 binary data by ID                         |
-| `DELETE` | `/resources?id=...` | Delete resources by a comma-separated list of IDs      |
+### Resource Service
 
-Swagger UI: `http://localhost:8080/swagger-ui/index.html`  
-H2 Console (dev): `http://localhost:8080/h2-console`
+| Method   | URL                 | Description                                                            |
+|----------|---------------------|------------------------------------------------------------------------|
+| `POST`   | `/resources`        | Upload an MP3 file (raw body, `Content-Type: audio/mpeg`)              |
+| `GET`    | `/resources/{id}`   | Download MP3 binary data by ID                                         |
+| `DELETE` | `/resources?id=...` | Delete resources (S3 file, DB record, song metadata) by a list of IDs  |
 
-### Song Service (`http://localhost:8081`)
+### Song Service
 
 | Method   | URL             | Description                                      |
 |----------|-----------------|--------------------------------------------------|
-| `POST`   | `/songs`        | Save track metadata (called by resource-service) |
+| `POST`   | `/songs`        | Save track metadata                              |
 | `GET`    | `/songs/{id}`   | Get track metadata by ID                         |
 | `DELETE` | `/songs?id=...` | Delete metadata by a comma-separated list of IDs |
 
-Swagger UI: `http://localhost:8081/swagger-ui/index.html`  
-H2 Console (dev): `http://localhost:8081/h2-console`
+The services are not published on host ports in `compose.yaml` (see the container table below), so Swagger UI is not
+reachable from the host by default.
 
 ### Metadata Format
 
@@ -107,68 +140,88 @@ Field validation in `song-service`:
 
 ## Running the Project
 
-### Mode 1 — H2 (in-memory, no Docker)
+Requires Docker. Everything (services, databases, LocalStack, Eureka, gateway) is started by Docker Compose.
 
-Used by default. The database is created in memory on startup and cleared on shutdown.
-
-```cmd
-01_start_services.cmd
-```
-
-Equivalent:
+**Step 1 — create `.env`** from the template:
 
 ```cmd
-gradle :resource-service:bootRun :song-service:bootRun --parallel
+copy .env.example .env
 ```
 
-### Mode 2 — PostgreSQL (via Docker)
+The `S3_*` variables are optional: `compose.yaml` has the same defaults.
 
-Requires Docker to be running. Starts two PostgreSQL containers, then launches the services with the `docker` profile.
-
-**Step 1 — start the databases:**
+**Step 2 — build and start:**
 
 ```cmd
-docker compose up -d
+docker compose up --build -d
 ```
 
-**Step 2 — start the services:**
+If the DB schema changed (`init-scripts/resource-db/init.sql`), recreate the volumes, because init scripts run only on
+an empty database:
 
 ```cmd
-01_start_services_with_postgress.cmd
+docker compose down -v
 ```
 
-Equivalent:
+#### Containers and ports
+
+| Container            | Purpose                           | Host Port | Notes                                    |
+|----------------------|-----------------------------------|-----------|------------------------------------------|
+| `api-gateway`        | Entry point                       | `8080`    |                                          |
+| `eureka-server`      | Service registry                  | `8761`    |                                          |
+| `resource-db`        | PostgreSQL for `resource-service` | `5433`    | `resource_service`, `postgres/postgres`  |
+| `song-db`            | PostgreSQL for `song-service`     | `5434`    | `song_service`, `postgres/postgres`      |
+| `localstack`         | S3 emulator                       | `4566`    | Bucket `resources` is created on startup |
+| `resource-service`   | Resource API                      | none      | Port `8081` inside the network, Eureka   |
+| `song-service`       | Song API                          | none      | Port `8082` inside the network, Eureka   |
+| `resource-processor` | MP3 metadata extraction           | none      | Exits right after startup (see below)    |
+
+#### Scaling `song-service`
+
+Several instances of `song-service` can be started. Every instance registers itself in Eureka, and the API Gateway
+(`lb://SONG-SERVICE`) balances requests between them:
 
 ```cmd
-set SPRING_PROFILES_ACTIVE=docker
-gradle :resource-service:bootRun :song-service:bootRun --parallel
+docker compose up -d --scale song-service=2
 ```
 
-#### PostgreSQL Container Parameters
+Requests must go through the gateway (`http://localhost:8080`): the instances are not published on host ports.
 
-| Container     | Database           | Host Port | Credentials         |
-|---------------|--------------------|-----------|---------------------|
-| `resource-db` | `resource_service` | `5433`    | `postgres/postgres` |
-| `song-db`     | `song_service`     | `5434`    | `postgres/postgres` |
+#### Configuration (`resource-service`)
 
-> The `docker` profile configuration lives in `application-h2.yml` in each service.
+| Variable        | Default                  | Description            |
+|-----------------|--------------------------|------------------------|
+| `S3_ENDPOINT`   | `http://localstack:4566` | S3 endpoint            |
+| `S3_REGION`     | `us-east-1`              | S3 region              |
+| `S3_BUCKET`     | `resources`              | Bucket for MP3 files   |
+| `S3_ACCESS_KEY` | `test`                   | LocalStack credentials |
+| `S3_SECRET_KEY` | `test`                   | LocalStack credentials |
+
+To inspect the bucket from the host:
+
+```cmd
+docker exec localstack awslocal s3 ls s3://resources
+```
+
+---
+
+## Resource Processor
+
+A basic Spring Boot application (`web-application-type: none`) with no controllers. `Mp3MetadataExtractor` reads ID3
+tags with **Apache Tika** (`Mp3Parser`) and returns `name`, `artist`, `album`, `duration` (`mm:ss`) and `year`, the
+same fields as the song-service API.
+
+In this module it is not called by other services and does nothing on its own, so the container exits right after
+startup. This is expected.
 
 ---
 
 ## Notes and Gotchas
 
-### MP3 Tag Parsing
-
-- Both **ID3v1** and **ID3v2** tags are supported.
-- If the `title` tag is missing or empty, the filename (without extension) is used as the track name.
-- The year is normalized: the first 4 digits are extracted and validated against the range 1900–2099.
-- Duration is formatted as `mm:ss`.
-- Parsing is done via a temporary file on disk, because `mp3agic` requires a file path rather than an input stream.
-
 ### Soft Delete
 
-Both entities (`AudioResource`, `Song`) use an `is_deleted` flag. Records are never physically removed from the
-database. A `GET` request for a deleted record returns 404.
+`song-service` marks songs as deleted (`is_deleted`) and a `GET` for them returns 404. `resource-service` does not use
+soft delete: the DB record and the S3 file are removed physically.
 
 ### CSV Validation on Delete
 
@@ -178,10 +231,16 @@ The `id` parameter in DELETE requests accepts a comma-separated list (e.g. `1,2,
 - Maximum string length: 200 characters
 - Each element must be a positive integer
 
+### Delete Is Not Transactional
+
+S3 and `song-service` cannot be rolled back, so `DELETE /resources` is not transactional: the file is removed first,
+then the DB record, then the metadata. If `song-service` is down, the resource is already deleted and the request fails
+with 502/503.
+
 ### Unit Tests Are Disabled
 
-Both services have `tasks.named('test') { enabled = false }` in their `build.gradle`. Testing is done exclusively
-through Postman integration tests.
+All modules have `tasks.named('test') { enabled = false }` in their `build.gradle`. Testing is done exclusively through
+Postman integration tests.
 
 ---
 
@@ -200,14 +259,22 @@ cd test-data
 newman run introduction_to_microservices.postman_collection.json
 ```
 
+> **The collection is not adapted to Module 1 yet.** Upload no longer creates song metadata, so the scenarios that
+> expect metadata after an upload (get metadata, delete with metadata, duplicate id → 409) have to create it explicitly
+> through `POST /songs`.
+>
+> The collection variable `song_service_url` points to `http://localhost:8081`, but Song Service is not published on a
+> host port in `compose.yaml`. Use `http://localhost:8080` (the gateway) for both `resource_service_url` and
+> `song_service_url`.
+
 ### Test Coverage
 
 **Happy Path:**
 
 - Create song metadata directly via song-service
 - Upload a valid MP3 via resource-service
-- Get resource and metadata by ID
-- Delete resource and metadata (cascaded)
+- Get the resource (file from S3) by ID
+- Delete resource and metadata
 - Verify 404 after deletion
 
 **Error Cases — Resource Service:**
@@ -225,8 +292,7 @@ newman run introduction_to_microservices.postman_collection.json
 - Duplicate ID → 409
 - Invalid IDs and CSV → 400
 
-> **Test execution order matters.** Some tests depend on data created by earlier requests (e.g. the duplicate test
-> requires an MP3 to be uploaded first).
+> **Test execution order matters.** Some tests depend on data created by earlier requests.
 
 ---
 
@@ -234,9 +300,9 @@ newman run introduction_to_microservices.postman_collection.json
 
 | Tool   | Version                                     |
 |--------|---------------------------------------------|
-| Java   | 21+                                         |
+| Java   | 21+ (only to build locally without Docker)  |
 | Gradle | Wrapper included                            |
-| Docker | Any recent version (PostgreSQL mode only)   |
+| Docker | Any recent version with Docker Compose      |
 | Newman | Any recent version (integration tests only) |
 
 ---
@@ -245,10 +311,11 @@ newman run introduction_to_microservices.postman_collection.json
 
 - **Spring Boot** 3.4.0
 - **Spring Data JPA** + Hibernate
-- **Spring Cloud OpenFeign** — HTTP client between services
-- **H2** — in-memory database for development
-- **PostgreSQL** 16 — production-like database via Docker
-- **mp3agic** 0.9.1 — ID3 tag parsing
+- **Spring Cloud** (OpenFeign, Netflix Eureka, Gateway)
+- **PostgreSQL** 16 — databases via Docker
+- **AWS SDK for Java v2 (S3)** 2.29.29 — file storage client
+- **LocalStack** 3.8.1 — S3 emulator
+- **Apache Tika** 3.0.0 — MP3 metadata extraction (`resource-processor`)
 - **MapStruct** 1.5.5 — DTO to Entity mapping
 - **Lombok** 1.18.36
 - **springdoc-openapi** 2.8.8 — Swagger UI
