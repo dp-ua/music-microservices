@@ -91,6 +91,15 @@ services:
       localstack:
         condition: service_healthy
 
+  # No web interface and no ports. In Module 1 it is a basic Spring Boot application that can only
+  # extract mp3 metadata, so the process exits right after the startup - this is expected.
+  resource-processor:
+    build:
+      context: .
+      dockerfile: resource-processor/Dockerfile
+    container_name: resource-processor
+    restart: "no"
+
   song-service:
     build:
       context: .
