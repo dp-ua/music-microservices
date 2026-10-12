@@ -11,6 +11,7 @@ COPY build.gradle .
 COPY settings.gradle .
 COPY gradle.properties .
 COPY resource-service/build.gradle resource-service/build.gradle
+COPY resource-processor/build.gradle resource-processor/build.gradle
 COPY song-service/build.gradle song-service/build.gradle
 COPY eureka-server/build.gradle eureka-server/build.gradle
 COPY api-gateway/build.gradle api-gateway/build.gradle
