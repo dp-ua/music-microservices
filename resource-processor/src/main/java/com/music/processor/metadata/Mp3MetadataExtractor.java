@@ -34,7 +34,6 @@ public class Mp3MetadataExtractor {
         try {
             parser.parse(fileData, new DefaultHandler(), tikaMetadata, new ParseContext());
         } catch (Exception e) {
-            log.error("Metadata extraction error: ", e);
             throw new MetadataExtractionException(e);
         }
 
