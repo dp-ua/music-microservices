@@ -4,3 +4,37 @@ spring:
   main:
     # no web interface: the service only processes mp3 files
     web-application-type: none
+
+  rabbitmq:
+    host: "${RABBITMQ_HOST:localhost}"
+    port: "${RABBITMQ_PORT:5672}"
+    username: "${RABBITMQ_USER:rabbit}"
+    password: "${RABBITMQ_PASSWORD:rabbit}"
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 3000
+            read-timeout: 15000
+
+eureka:
+  client:
+    # the processor only looks up other services, it has no endpoints to be found
+    register-with-eureka: false
+    service-url:
+      defaultZone: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}"
+    registry-fetch-interval-seconds: 5
+
+messaging:
+  resource-uploaded:
+    queue: "${RABBITMQ_QUEUE:resource.uploaded}"
+
+# Retry of the synchronous calls to resource-service and song-service.
+# Only transient failures are retried (connection errors, 5xx), 4xx are not.
+processor:
+  retry:
+    max-attempts: 3
+    delay-ms: 500
+    multiplier: 2
