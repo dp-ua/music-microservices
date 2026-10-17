@@ -10,6 +10,7 @@ import com.music.resource.controller.dto.ResourcesDeletedDto;
 import com.music.resource.exception.ResourceException;
 import com.music.resource.exception.ResourceNotFoundException;
 import com.music.resource.mapper.ResourceMapper;
+import com.music.resource.messaging.ResourceEventPublisher;
 import com.music.resource.model.AudioResource;
 import com.music.resource.model.ResourceFile;
 import com.music.resource.repository.ResourcesRepository;
@@ -29,6 +30,7 @@ public class ResourcesServiceImpl implements ResourcesService {
     private final ResourceMapper resourceMapper;
     private final ResourcesRepository resourcesRepository;
     private final FileStorage fileStorage;
+    private final ResourceEventPublisher resourceEventPublisher;
     private final CSVValidator validator;
 
     @Override
@@ -39,6 +41,7 @@ public class ResourcesServiceImpl implements ResourcesService {
 
         var location = fileStorage.upload(fileData);
         var resourceId = saveLocation(location, fileData.length);
+        resourceEventPublisher.publishUploaded(resourceId);
 
         log.info("Resource uploaded with id: {}, location: {}", resourceId, location);
         return ResourceUploadedDto.builder()
