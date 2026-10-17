@@ -66,6 +66,27 @@ services:
       retries: 20
       start_period: 30s
 
+  # Message broker: resource-service publishes "resource uploaded" events, resource-processor consumes them.
+  # The queue itself is declared (durable) by the services on startup. UI: http://localhost:15672
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rabbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbit}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      # keeps durable queues and persistent messages across container restarts
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
   resource-service:
     build:
       context: .
@@ -83,6 +104,11 @@ services:
       S3_BUCKET: ${S3_BUCKET:-resources}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-test}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-test}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USER: ${RABBITMQ_USER:-rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-resource.uploaded}
     depends_on:
       resource-db:
         condition: service_healthy
@@ -90,15 +116,33 @@ services:
         condition: service_healthy
       localstack:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
-  # No web interface and no ports. In Module 1 it is a basic Spring Boot application that can only
-  # extract mp3 metadata, so the process exits right after the startup - this is expected.
+  # No web interface and no ports. Listens to the queue, then synchronously (through Eureka):
+  # downloads the mp3 from resource-service and saves the extracted metadata to song-service.
   resource-processor:
     build:
       context: .
       dockerfile: resource-processor/Dockerfile
     container_name: resource-processor
-    restart: "no"
+    restart: unless-stopped
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_SERVER_URL}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USER: ${RABBITMQ_USER:-rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-resource.uploaded}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      resource-service:
+        condition: service_started
+      song-service:
+        condition: service_started
 
   song-service:
     build:
@@ -133,3 +177,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+volumes:
+  rabbitmq-data:
