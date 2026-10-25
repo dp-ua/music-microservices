@@ -85,6 +85,19 @@ tasks.withType(Test).configureEach {
     }
 }
 
+// Pact: the consumer tests write the pact files to <module>/build/pacts. The old files are overwritten, not merged,
+// so a removed test can not leave a stale contract behind.
+tasks.named('contractConsumerTest') {
+    systemProperty 'pact.rootDir', layout.buildDirectory.dir('pacts').get().asFile.absolutePath
+    systemProperty 'pact.writer.overwrite', 'true'
+    doFirst { delete layout.buildDirectory.dir('pacts') }
+}
+
+// The provider tests read the contracts of all consumers from one shared folder (see the root build.gradle).
+tasks.named('contractProviderTest') {
+    dependsOn ':publishPacts'
+}
+
 jacoco {
     toolVersion = jacocoVersion
 }

@@ -5,3 +5,27 @@ plugins {
 subprojects {
     apply plugin: 'java'
 }
+
+// ---- Contract tests (Pact): propagation of the contracts from the consumers to the providers ----
+// 1. The consumer tests (resource-processor, resource-service) write pact files to <module>/build/pacts.
+// 2. publishPacts copies them to build/pacts-shared. In a real project this step would publish them to a Pact Broker.
+// 3. The provider tests (song-service, resource-service) replay the pacts from build/pacts-shared against the code.
+// One command runs the whole chain: gradlew contractTests
+def pactConsumers = [':resource-processor', ':resource-service']
+def pactProviders = [':song-service', ':resource-service']
+
+tasks.register('publishPacts', Copy) {
+    group = 'verification'
+    description = 'Copies the pact files of all consumers to build/pacts-shared.'
+    pactConsumers.each { dependsOn "${it}:contractConsumerTest" }
+    pactConsumers.each { from(project(it).layout.buildDirectory.dir('pacts')) }
+    into layout.buildDirectory.dir('pacts-shared')
+    doFirst { delete layout.buildDirectory.dir('pacts-shared') }
+}
+
+tasks.register('contractTests') {
+    group = 'verification'
+    description = 'Consumer tests, publishing of the pacts, provider tests.'
+    dependsOn 'publishPacts'
+    pactProviders.each { dependsOn "${it}:contractProviderTest" }
+}
