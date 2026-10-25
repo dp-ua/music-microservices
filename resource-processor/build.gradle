@@ -50,6 +50,22 @@ dependencyManagement {
     }
 }
 
-tasks.named('test') {
-    enabled = false
+// Test suites (unit, integration, component, contract): see gradle/testing.gradle
+apply from: "$rootDir/gradle/testing.gradle"
+
+dependencies {
+    // integration tests: Feign + retry against WireMock, real RabbitMQ
+    integrationTestImplementation "org.wiremock:wiremock-standalone:$wiremockVersion"
+    integrationTestImplementation 'org.testcontainers:rabbitmq'
+
+    // component tests: Cucumber scenarios, neighbour services are WireMock, real RabbitMQ
+    componentTestImplementation "org.wiremock:wiremock-standalone:$wiremockVersion"
+    componentTestImplementation 'org.testcontainers:rabbitmq'
+    componentTestImplementation 'io.cucumber:cucumber-java'
+    componentTestImplementation 'io.cucumber:cucumber-spring'
+    componentTestImplementation 'io.cucumber:cucumber-junit-platform-engine'
+    componentTestImplementation 'org.junit.platform:junit-platform-suite'
+
+    // contract tests (Pact): resource-processor is a consumer of resource-service and song-service
+    contractConsumerTestImplementation "au.com.dius.pact.consumer:junit5:$pactVersion"
 }
