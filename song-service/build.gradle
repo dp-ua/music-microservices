@@ -44,6 +44,10 @@ dependencyManagement {
     }
 }
 
-tasks.named('test') {
-    enabled = false
+// Test suites (unit, integration, component, contract): see gradle/testing.gradle
+apply from: "$rootDir/gradle/testing.gradle"
+
+dependencies {
+    // contract tests (Pact): song-service is a provider (POST/DELETE /songs)
+    contractProviderTestImplementation "au.com.dius.pact.provider:junit5spring:$pactVersion"
 }
