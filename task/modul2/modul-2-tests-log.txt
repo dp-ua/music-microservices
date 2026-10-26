@@ -1,0 +1,82 @@
+>02_run_test.cmd
+newman
+
+Module 2: Microservices communication
+
+□ Happy Path (async processing)
+└ Upload Valid Mp3 Resource (200)
+  POST http://localhost:8080/resources [200 OK, 124B, 877ms]
+  √  Status code is 200
+  √  Response contains only 'id' - a positive integer
+
+└ Get Song Metadata Created Asynchronously (200)
+  GET http://localhost:8080/songs/1 [404 Not Found, 192B, 330ms]
+  ┌
+  │ 'Using "postman.setNextRequest" is deprecated. Use "pm.execution.setNextRequest()" instead.'
+  └
+
+Attempting to set next request to Get Song Metadata Created Asynchronously (200)
+
+└ Get Song Metadata Created Asynchronously (200)
+  GET http://localhost:8080/songs/1 [200 OK, 221B, 20ms]
+  √  Status code is 200 (metadata appeared after 1 retries)
+  √  Metadata extracted from the mp3 is saved with the resource id
+
+└ Get Existing Resource (200)
+  GET http://localhost:8080/resources/1 [200 OK, 189.94kB, 25ms]
+  √  Status code is 200
+  √  Content-Type is audio/mpeg
+  √  Binary data is returned
+
+└ Create Duplicate Song Metadata (409)
+  POST http://localhost:8080/songs [409 Conflict, 200B, 21ms]
+  √  Status code is 409
+  √  Response has errorMessage and errorCode
+
+└ Delete Resource With Metadata (200)
+  DELETE http://localhost:8080/resources?id=1 [200 OK, 127B, 635ms]
+  √  Status code is 200
+  √  Response contains the deleted id
+
+└ Get Deleted Resource (404)
+  GET http://localhost:8080/resources/1 [404 Not Found, 188B, 32ms]
+  √  Status code is 404
+
+└ Get Deleted Song Metadata (404)
+  GET http://localhost:8080/songs/1 [404 Not Found, 192B, 18ms]
+  √  Status code is 404
+
+□ Mp3 Without Required Tags
+└ Upload Mp3 Without Required Tags (200)
+  POST http://localhost:8080/resources [200 OK, 124B, 43ms]
+  √  Status code is 200: the upload does not depend on the metadata
+  √  Response contains only 'id' - a positive integer
+
+└ Song Metadata Is Not Created (404)
+  GET http://localhost:8080/songs/2 [404 Not Found, 192B, 17ms]
+  √  Status code is 404: no default values are saved for the missing tags
+
+└ Delete Resource Without Metadata (200)
+  DELETE http://localhost:8080/resources?id=2 [200 OK, 127B, 35ms]
+  √  Status code is 200
+  √  Response contains the deleted id (Song Service ignores the missing metadata)
+
+┌─────────────────────────┬────────────────────┬────────────────────┐
+│                         │           executed │             failed │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│              iterations │                  1 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│                requests │                 11 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│            test-scripts │                 11 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│      prerequest-scripts │                  3 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│              assertions │                 18 │                  0 │
+├─────────────────────────┴────────────────────┴────────────────────┤
+│ total run duration: 7.4s                                          │
+├───────────────────────────────────────────────────────────────────┤
+│ total data received: 190.31kB (approx)                            │
+├───────────────────────────────────────────────────────────────────┤
+│ average response time: 186ms [min: 17ms, max: 877ms, s.d.: 286ms] │
+└───────────────────────────────────────────────────────────────────┘
