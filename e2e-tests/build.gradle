@@ -1,0 +1,73 @@
+// End-to-end tests (Module 3). No Spring and no application code: the tests talk HTTP to the API gateway of the
+// running stack (docker compose, see 01_start_services_wsl.cmd). The stack is NOT started by Gradle.
+//
+//     gradlew :e2e-tests:e2eTest                         (base URL http://localhost:8080)
+//     gradlew :e2e-tests:e2eTest -De2e.baseUrl=http://host:8080
+
+plugins {
+    id 'java'
+}
+
+group = 'com.music'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
+repositories {
+    mavenCentral()
+}
+
+def e2eSourceSet = sourceSets.create('e2eTest')
+
+dependencies {
+    // versions are aligned with the Spring Boot 3.4.0 used by the services (JUnit 5.11, Platform 1.11)
+    e2eTestImplementation platform('org.junit:junit-bom:5.11.3')
+    e2eTestImplementation platform("io.cucumber:cucumber-bom:${cucumberVersion}")
+
+    e2eTestImplementation 'io.cucumber:cucumber-java'
+    e2eTestImplementation 'io.cucumber:cucumber-junit-platform-engine'
+    e2eTestImplementation 'org.junit.platform:junit-platform-suite'
+    e2eTestImplementation "io.rest-assured:rest-assured:${restAssuredVersion}"
+    // REST-assured needs a JSON library to send a Map as a JSON body
+    e2eTestImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.1'
+    e2eTestImplementation 'org.awaitility:awaitility:4.2.2'
+    e2eTestImplementation 'org.assertj:assertj-core:3.26.3'
+
+    // Gradle 9 does not provide the JUnit launcher itself
+    e2eTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// the MP3 samples are shared with the other test types, they are not copied into the module
+tasks.named(e2eSourceSet.processResourcesTaskName) {
+    from("$rootDir/test-data") {
+        include '*.mp3'
+    }
+}
+
+tasks.register('e2eTest', Test) {
+    group = 'verification'
+    description = 'Runs the end-to-end tests against the running stack (start it first: 01_start_services_wsl.cmd).'
+    testClassesDirs = e2eSourceSet.output.classesDirs
+    classpath = e2eSourceSet.runtimeClasspath
+    useJUnitPlatform()
+
+    systemProperty 'e2e.baseUrl', System.getProperty('e2e.baseUrl', 'http://localhost:8080')
+
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+    }
+
+    // the stack is outside of Gradle: a green result of a previous run proves nothing
+    outputs.upToDateWhen { false }
+
+    afterSuite { descriptor, result ->
+        if (!descriptor.parent) {
+            println ">>> ${path}: ${result.testCount} tests, ${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, ${result.skippedTestCount} skipped <<<"
+        }
+    }
+}
