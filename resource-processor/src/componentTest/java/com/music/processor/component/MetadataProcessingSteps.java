@@ -189,9 +189,13 @@ public class MetadataProcessingSteps {
     public void eventIsAcknowledged() {
         // ready = waiting for a consumer, unacked = taken by the listener but not confirmed yet.
         // Both zero means the broker has the confirmation and will not deliver the message again.
-        await().atMost(TIMEOUT).untilAsserted(() -> assertThat(queueCounts()).containsExactly(0, 0));
-        await().during(QUIET_PERIOD).atMost(QUIET_PERIOD.plusSeconds(5)).untilAsserted(() ->
-                assertThat(queueCounts()).containsExactly(0, 0));
+        // Every check is a "rabbitmqctl" run inside the container (a new Erlang VM, 1-5 s on a busy machine), so the
+        // polling is slow and the limit must be generous: a too short limit fails on the speed of the check,
+        // not on a wrong queue state.
+        await().atMost(TIMEOUT).pollInterval(Duration.ofMillis(500))
+                .untilAsserted(() -> assertThat(queueCounts()).containsExactly(0, 0));
+        await().during(QUIET_PERIOD).atMost(QUIET_PERIOD.plus(TIMEOUT)).pollInterval(Duration.ofMillis(500))
+                .untilAsserted(() -> assertThat(queueCounts()).containsExactly(0, 0));
     }
 
     // ---------- helpers ----------
