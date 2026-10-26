@@ -5,3 +5,9 @@ include 'resource-processor'
 include 'song-service'
 include 'eureka-server'
 include 'api-gateway'
+
+// End-to-end tests. The Dockerfiles copy only the build files of the services, and Gradle 9 fails on an included
+// project whose directory is missing, so the module is included only when it is there (not inside the images).
+if (file('e2e-tests').exists()) {
+    include 'e2e-tests'
+}
