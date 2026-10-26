@@ -26,6 +26,12 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
+    // RabbitMQ: "resource uploaded" events
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    // Retry of the event publishing (@Retryable needs AOP)
+    implementation 'org.springframework.retry:spring-retry'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
     runtimeOnly 'org.postgresql:postgresql'
 
     //Swagger

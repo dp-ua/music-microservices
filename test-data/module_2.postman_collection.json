@@ -1,0 +1,500 @@
+{
+  "info": {
+    "name": "Module 2: Microservices communication",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Checks the flow Upload -> RabbitMQ -> Resource Processor -> Song Service. Metadata is created asynchronously, so the collection polls GET /songs/{id}. Run from the test-data folder (mp3 files are taken from it): newman run module_2.postman_collection.json. The order of the requests matters."
+  },
+  "item": [
+    {
+      "name": "Happy Path (async processing)",
+      "item": [
+        {
+          "name": "Upload Valid Mp3 Resource (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"Expected status code to be 200\").to.equal(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains only 'id' - a positive integer\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Object.keys(jsonData), \"Expected response to contain only 'id' field\").to.deep.equal([\"id\"]);",
+                  "    pm.expect(jsonData.id, \"id should be a positive integer\").to.be.a(\"number\").and.to.be.above(0);",
+                  "});",
+                  "",
+                  "// the id is used by the next requests; the polling starts from scratch",
+                  "pm.collectionVariables.set(\"resource_id\", pm.response.json().id);",
+                  "pm.collectionVariables.set(\"poll_attempts\", \"0\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "audio/mpeg"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "valid-sample-with-required-tags.mp3"
+              }
+            },
+            "url": {
+              "raw": "{{resource_service_url}}/resources",
+              "host": [
+                "{{resource_service_url}}"
+              ],
+              "path": [
+                "resources"
+              ]
+            },
+            "description": "Resource Service stores the file in S3, saves its location and publishes {\"resourceId\": N} to RabbitMQ. It does not call Song Service."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Song Metadata Created Asynchronously (200)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// pause between the polling attempts (the first attempt is made without a pause)",
+                  "var attempt = parseInt(pm.collectionVariables.get(\"poll_attempts\") || \"0\");",
+                  "var interval = parseInt(pm.collectionVariables.get(\"poll_interval_ms\"));",
+                  "if (attempt > 0) {",
+                  "    setTimeout(function () {}, interval);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var requestName = \"Get Song Metadata Created Asynchronously (200)\";",
+                  "var attempt = parseInt(pm.collectionVariables.get(\"poll_attempts\") || \"0\");",
+                  "var maxAttempts = parseInt(pm.collectionVariables.get(\"max_poll_attempts\"));",
+                  "",
+                  "if (pm.response.code === 404 && attempt < maxAttempts) {",
+                  "    // not processed yet: the metadata is created asynchronously, ask again",
+                  "    pm.collectionVariables.set(\"poll_attempts\", attempt + 1);",
+                  "    postman.setNextRequest(requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_attempts\", \"0\");",
+                  "",
+                  "    pm.test(\"Status code is 200 (metadata appeared after \" + attempt + \" retries)\", function () {",
+                  "        pm.expect(pm.response.code, \"Metadata was not created by Resource Processor in time\").to.equal(200);",
+                  "    });",
+                  "",
+                  "    pm.test(\"Metadata extracted from the mp3 is saved with the resource id\", function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.id, \"id equals the resource id\").to.equal(parseInt(pm.collectionVariables.get(\"resource_id\")));",
+                  "        pm.expect(jsonData.name, \"name\").to.equal(\"Test Title\");",
+                  "        pm.expect(jsonData.artist, \"artist\").to.equal(\"Test Artist\");",
+                  "        pm.expect(jsonData.album, \"album\").to.equal(\"Test Album\");",
+                  "        pm.expect(jsonData.duration, \"duration\").to.equal(\"00:08\");",
+                  "        pm.expect(jsonData.year, \"year\").to.equal(\"2025\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{song_service_url}}/songs/{{resource_id}}",
+              "host": [
+                "{{song_service_url}}"
+              ],
+              "path": [
+                "songs",
+                "{{resource_id}}"
+              ]
+            },
+            "description": "Polls Song Service until Resource Processor has saved the metadata (the first answers are 404). The attempts and the pause are set by the collection variables max_poll_attempts and poll_interval_ms."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Existing Resource (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"Expected status code to be 200\").to.equal(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Content-Type is audio/mpeg\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\"), \"Expected Content-Type to be 'audio/mpeg'\").to.include(\"audio/mpeg\");",
+                  "});",
+                  "",
+                  "pm.test(\"Binary data is returned\", function () {",
+                  "    pm.expect(pm.response.stream.length, \"Expected a non-empty body\").to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{resource_service_url}}/resources/{{resource_id}}",
+              "host": [
+                "{{resource_service_url}}"
+              ],
+              "path": [
+                "resources",
+                "{{resource_id}}"
+              ]
+            },
+            "description": "The same synchronous call that Resource Processor makes to get the binary data."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Duplicate Song Metadata (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.expect(pm.response.code, \"Metadata for this id already exists\").to.equal(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has errorMessage and errorCode\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData, \"errorMessage\").to.have.property(\"errorMessage\");",
+                  "    pm.expect(jsonData.errorCode, \"errorCode\").to.equal(\"409\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": {{resource_id}},\n    \"name\": \"Test Title\",\n    \"artist\": \"Test Artist\",\n    \"album\": \"Test Album\",\n    \"duration\": \"00:08\",\n    \"year\": \"2025\"\n}"
+            },
+            "url": {
+              "raw": "{{song_service_url}}/songs",
+              "host": [
+                "{{song_service_url}}"
+              ],
+              "path": [
+                "songs"
+              ]
+            },
+            "description": "Resource Processor treats this 409 as success, so a message delivered twice does no harm (idempotency)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Resource With Metadata (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"Expected status code to be 200\").to.equal(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains the deleted id\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Object.keys(jsonData), \"Expected response to contain only 'ids' field\").to.deep.equal([\"ids\"]);",
+                  "    pm.expect(jsonData.ids, \"ids\").to.deep.equal([parseInt(pm.collectionVariables.get(\"resource_id\"))]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{resource_service_url}}/resources?id={{resource_id}}",
+              "host": [
+                "{{resource_service_url}}"
+              ],
+              "path": [
+                "resources"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{resource_id}}"
+                }
+              ]
+            },
+            "description": "Deletion stays synchronous: Resource Service removes the file and the record and calls Song Service itself. The broker is not used."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deleted Resource (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.expect(pm.response.code, \"Expected status code to be 404\").to.equal(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{resource_service_url}}/resources/{{resource_id}}",
+              "host": [
+                "{{resource_service_url}}"
+              ],
+              "path": [
+                "resources",
+                "{{resource_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deleted Song Metadata (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.expect(pm.response.code, \"Metadata must be deleted together with the resource\").to.equal(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{song_service_url}}/songs/{{resource_id}}",
+              "host": [
+                "{{song_service_url}}"
+              ],
+              "path": [
+                "songs",
+                "{{resource_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Mp3 Without Required Tags",
+      "item": [
+        {
+          "name": "Upload Mp3 Without Required Tags (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200: the upload does not depend on the metadata\", function () {",
+                  "    pm.expect(pm.response.code, \"Expected status code to be 200\").to.equal(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains only 'id' - a positive integer\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(Object.keys(jsonData), \"Expected response to contain only 'id' field\").to.deep.equal([\"id\"]);",
+                  "    pm.expect(jsonData.id, \"id should be a positive integer\").to.be.a(\"number\").and.to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"resource_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "audio/mpeg"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "invalid-sample-with-missed-tags.mp3"
+              }
+            },
+            "url": {
+              "raw": "{{resource_service_url}}/resources",
+              "host": [
+                "{{resource_service_url}}"
+              ],
+              "path": [
+                "resources"
+              ]
+            },
+            "description": "The file is stored and the event is published. Resource Processor sends the extracted metadata as it is, Song Service rejects it (400) and the processor logs an ERROR."
+          },
+          "response": []
+        },
+        {
+          "name": "Song Metadata Is Not Created (404)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// give Resource Processor enough time to handle the message (and fail)",
+                  "setTimeout(function () {}, parseInt(pm.collectionVariables.get(\"negative_wait_ms\")));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404: no default values are saved for the missing tags\", function () {",
+                  "    pm.expect(pm.response.code, \"Metadata with missing fields must not be saved\").to.equal(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{song_service_url}}/songs/{{resource_id}}",
+              "host": [
+                "{{song_service_url}}"
+              ],
+              "path": [
+                "songs",
+                "{{resource_id}}"
+              ]
+            },
+            "description": "Waits negative_wait_ms before the request. Check the resource-processor log: it must contain ERROR lines with the missing fields and status=400."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Resource Without Metadata (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"Expected status code to be 200\").to.equal(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains the deleted id (Song Service ignores the missing metadata)\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.ids, \"ids\").to.deep.equal([parseInt(pm.collectionVariables.get(\"resource_id\"))]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{resource_service_url}}/resources?id={{resource_id}}",
+              "host": [
+                "{{resource_service_url}}"
+              ],
+              "path": [
+                "resources"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{resource_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "resource_service_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "song_service_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "resource_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "poll_attempts",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "max_poll_attempts",
+      "value": "20",
+      "type": "string"
+    },
+    {
+      "key": "poll_interval_ms",
+      "value": "500",
+      "type": "string"
+    },
+    {
+      "key": "negative_wait_ms",
+      "value": "4000",
+      "type": "string"
+    }
+  ]
+}

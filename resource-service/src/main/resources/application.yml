@@ -8,6 +8,18 @@ spring:
     username: "${SPRING_DATASOURCE_USERNAME:postgres}"
     password: "${SPRING_DATASOURCE_PASSWORD:postgres}"
 
+  rabbitmq:
+    host: "${RABBITMQ_HOST:localhost}"
+    port: "${RABBITMQ_PORT:5672}"
+    username: "${RABBITMQ_USER:rabbit}"
+    password: "${RABBITMQ_PASSWORD:rabbit}"
+    # the broker confirms that the message is stored, the publisher waits for it
+    publisher-confirm-type: correlated
+    # a message that can't be routed to a queue is returned instead of being silently dropped
+    publisher-returns: true
+    template:
+      mandatory: true
+
   jpa:
     hibernate:
       ddl-auto: none
@@ -37,6 +49,17 @@ storage:
     secret-key: "${S3_SECRET_KEY:test}"
     # required for LocalStack (bucket in the path instead of the host name)
     path-style-access: true
+
+messaging:
+  resource-uploaded:
+    queue: "${RABBITMQ_QUEUE:resource.uploaded}"
+    # wait for the broker confirm
+    confirm-timeout: 2s
+    # Short retry on purpose: the upload request waits for it (3 attempts, ~7 sec in the worst case)
+    retry:
+      max-attempts: 3
+      delay-ms: 200
+      multiplier: 2
 
 services:
   config:

@@ -1,4 +1,4 @@
 @echo off
 cd test-data
-newman run introduction_to_microservices.postman_collection.json
+newman run module_2.postman_collection.json
 pause

@@ -19,6 +19,19 @@ repositories {
 dependencies {
     // No web layer: plain Spring Boot application
     implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-json'
+
+    // Queue listener (RabbitMQ)
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+    // Synchronous calls to resource-service and song-service by name, through Eureka
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+
+    // Retry of the synchronous calls (@Retryable needs AOP)
+    implementation 'org.springframework.retry:spring-retry'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
 
     // Metadata extraction from mp3 files (Mp3Parser lives in the audio/video module)
     implementation "org.apache.tika:tika-core:$tikaVersion"
@@ -29,6 +42,12 @@ dependencies {
     //Lombok
     implementation "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok"
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2024.0.0"
+    }
 }
 
 tasks.named('test') {
