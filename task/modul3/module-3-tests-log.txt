@@ -1,0 +1,159 @@
+Module 3: test run log
+Date: 2026-10-26. Gradle 9.6.0, Java 21, Docker in WSL2 (Testcontainers on tcp://localhost:2375).
+Every test line below is printed by Gradle (PASSED / FAILED), the line starting with ">>>" is the summary of a suite.
+
+====================================================================================================
+1. gradlew test integrationTest componentTest contractTests jacocoCoverageReport --continue (unit, integration, component, contract)
+====================================================================================================
+RemoteCallErrorsTest > A very long response body is shortened PASSED
+RemoteCallErrorsTest > serverErrorsAreTransient(int) > status 500 is transient and will be retried PASSED
+RemoteCallErrorsTest > serverErrorsAreTransient(int) > status 502 is transient and will be retried PASSED
+RemoteCallErrorsTest > serverErrorsAreTransient(int) > status 503 is transient and will be retried PASSED
+RemoteCallErrorsTest > serverErrorsAreTransient(int) > status 504 is transient and will be retried PASSED
+RemoteCallErrorsTest > serverErrorsAreTransient(int) > status 599 is transient and will be retried PASSED
+RemoteCallErrorsTest > The message tells the service, the operation, the status and the response body PASSED
+RemoteCallErrorsTest > clientErrorsAreNotTransient(int) > status 400 is not transient and will not be retried PASSED
+RemoteCallErrorsTest > clientErrorsAreNotTransient(int) > status 401 is not transient and will not be retried PASSED
+RemoteCallErrorsTest > clientErrorsAreNotTransient(int) > status 404 is not transient and will not be retried PASSED
+RemoteCallErrorsTest > clientErrorsAreNotTransient(int) > status 409 is not transient and will not be retried PASSED
+RemoteCallErrorsTest > clientErrorsAreNotTransient(int) > status 422 is not transient and will not be retried PASSED
+RemoteCallErrorsTest > The original Feign exception is kept as the cause PASSED
+RemoteCallErrorsTest > A connection error (no HTTP status) is transient PASSED
+Mp3MetadataExtractorTest > Bytes that are not an MP3 file give a metadata extraction error or no metadata at all PASSED
+Mp3MetadataExtractorTest > A failing stream is wrapped into MetadataExtractionException PASSED
+Mp3MetadataExtractorTest > All five fields are extracted from an MP3 with the required tags PASSED
+Mp3MetadataExtractorTest > The same result is returned for a byte array and for a stream PASSED
+Mp3MetadataExtractorTest > The duration has the mm:ss format of song-service PASSED
+Mp3MetadataExtractorTest > An MP3 without the required tags is not an error: missing fields stay empty, nothing is filled in PASSED
+ResourceProcessingServiceImplTest > A failure of song-service is passed to the caller (the listener logs it and acknowledges) PASSED
+ResourceProcessingServiceImplTest > The file is downloaded, then metadata is extracted, then saved: in this order PASSED
+ResourceProcessingServiceImplTest > If the metadata can't be extracted, nothing is saved PASSED
+ResourceProcessingServiceImplTest > Missing tags are sent as they are, no default values are filled in PASSED
+ResourceProcessingServiceImplTest > The song id equals the resource id and all fields are passed on PASSED
+ResourceProcessingServiceImplTest > If the file can't be downloaded, nothing is extracted and nothing is saved PASSED
+>>> :resource-processor:test: 26 tests, 26 passed, 0 failed, 0 skipped <<<
+ResourcesServiceImplTest > Delete > Existing resources are removed from storage, then from the database, then from song-service PASSED
+ResourcesServiceImplTest > Delete > An invalid id list is rejected before the database is used PASSED
+ResourcesServiceImplTest > Delete > Deleting does not use the message broker PASSED
+ResourcesServiceImplTest > Delete > If no resource exists, storage, database and song-service are not touched PASSED
+ResourcesServiceImplTest > Delete > Unknown ids are ignored: only existing ones are deleted and reported PASSED
+ResourcesServiceImplTest > Download > An unknown id gives ResourceNotFoundException (404) and storage is not called PASSED
+ResourcesServiceImplTest > Download > The file is read from storage by the saved location PASSED
+ResourcesServiceImplTest > Upload > If the database fails, the file is removed from storage and nothing is published PASSED
+ResourcesServiceImplTest > Upload > The file goes to storage, the location to the database, then the event is published PASSED
+ResourcesServiceImplTest > Upload > An empty body is rejected with 400 before anything is stored PASSED
+ResourcesServiceImplTest > Upload > If the storage fails, nothing is saved and nothing is published PASSED
+ResourcesServiceImplTest > Upload > If the cleanup fails too, the original database error is thrown and the cleanup error is kept PASSED
+ResourcesServiceImplTest > Upload > Only the location and the size are saved in the database, not the file PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [abc] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [1,abc] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [1.5] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [0] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [-1] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [1,0] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [1,-5] is rejected as an invalid id PASSED
+CSVValidatorTest > notPositiveIntegerIsRejected(String) > [9223372036854775808] is rejected as an invalid id PASSED
+CSVValidatorTest > A single id is parsed PASSED
+CSVValidatorTest > blankValueIsRejected(String) > [null] is rejected as empty PASSED
+CSVValidatorTest > blankValueIsRejected(String) > [] is rejected as empty PASSED
+CSVValidatorTest > blankValueIsRejected(String) > [ ] is rejected as empty PASSED
+CSVValidatorTest > blankValueIsRejected(String) > [   ] is rejected as empty PASSED
+CSVValidatorTest > The result is a list of Long values PASSED
+CSVValidatorTest > 200 characters are allowed PASSED
+CSVValidatorTest > More than 200 characters are rejected PASSED
+CSVValidatorTest > Spaces around the numbers are ignored PASSED
+CSVValidatorTest > A comma separated list is parsed, the order is kept PASSED
+CSVValidatorTest > The error code of the validation errors is 400 PASSED
+CSVValidatorTest > The message names the first invalid value PASSED
+>>> :resource-service:test: 33 tests, 33 passed, 0 failed, 0 skipped <<<
+ProcessorRetryIT > Saving metadata to song-service > 409 (the metadata is already saved, the message came twice): success, one call PASSED
+ProcessorRetryIT > Saving metadata to song-service > 500 every time: all attempts are made, then a transient error is thrown PASSED
+ProcessorRetryIT > Saving metadata to song-service > 503, 503, 200: three calls with the same body and the call succeeds PASSED
+ProcessorRetryIT > Saving metadata to song-service > 400 (invalid metadata): exactly one call, no retry PASSED
+ProcessorRetryIT > Download from resource-service > 503 every time: all attempts are made, then a transient error is thrown PASSED
+ProcessorRetryIT > Download from resource-service > 200 at once: exactly one call PASSED
+ProcessorRetryIT > Download from resource-service > 503, 503, 200: three calls and the file is returned PASSED
+ProcessorRetryIT > Download from resource-service > 200 with an empty body is an error and is not retried PASSED
+ProcessorRetryIT > Download from resource-service > 404 (the resource does not exist): exactly one call, no retry PASSED
+>>> :resource-processor:integrationTest: 9 tests, 9 passed, 0 failed, 0 skipped <<<
+RabbitResourceEventPublisherBrokerDownIT > Stopped broker: N attempts, then the failure is only logged and no exception is thrown PASSED
+RabbitResourceEventPublisherIT > A message that is not routed to a queue is a failure: all attempts are made, the call does not throw PASSED
+RabbitResourceEventPublisherIT > The message is JSON {"resourceId":N} PASSED
+RabbitResourceEventPublisherIT > The queue is declared durable PASSED
+RabbitResourceEventPublisherIT > One message per call, sent once when the broker accepts it PASSED
+RabbitResourceEventPublisherIT > The message is persistent (delivery mode 2), the broker writes it to disk PASSED
+ResourcesRepositoryIT > An update moves updated_at forward and never touches created_at PASSED
+ResourcesRepositoryIT > A resource without the storage location is rejected, the table keeps its NOT NULL rules PASSED
+ResourcesRepositoryIT > findAllById returns only the existing resources, unknown ids are skipped PASSED
+ResourcesRepositoryIT > A saved resource gets a generated id and both timestamps PASSED
+ResourcesRepositoryIT > deleteAllInBatch removes the given resources and keeps the others PASSED
+ResourcesRepositoryIT > A resource is read back from the database with all its fields PASSED
+ResourcesRepositoryIT > An unknown id is not found PASSED
+S3FileStorageIT > Downloading a file that never existed is a 404 PASSED
+S3FileStorageIT > A file is downloaded exactly as it was uploaded PASSED
+S3FileStorageIT > Deleting the same file twice is not an error PASSED
+S3FileStorageIT > The location points to the configured bucket, the key is a new .mp3 name every time PASSED
+S3FileStorageIT > The object is stored with the audio/mpeg content type PASSED
+S3FileStorageIT > A storage problem (the bucket does not exist) is a 500, not a 404 PASSED
+S3FileStorageIT > A deleted file can not be downloaded any more PASSED
+>>> :resource-service:integrationTest: 20 tests, 20 passed, 0 failed, 0 skipped <<<
+resource-processor component tests > Metadata extraction for uploaded resources > Metadata of an uploaded MP3 is saved to the song catalog PASSED
+resource-processor component tests > Metadata extraction for uploaded resources > MP3 without required tags is rejected by the song catalog PASSED
+resource-processor component tests > Metadata extraction for uploaded resources > Song service is temporarily unavailable PASSED
+resource-processor component tests > Metadata extraction for uploaded resources > The same event is delivered twice PASSED
+resource-processor component tests > Metadata extraction for uploaded resources > Resource service does not know the resource PASSED
+>>> :resource-processor:componentTest: 5 tests, 5 passed, 0 failed, 0 skipped <<<
+ResourceServiceHttpContractTest > unknownResourceIsAnErrorThatIsNotRetried() PASSED
+ResourceServiceHttpContractTest > downloadsTheFileOfAnExistingResource() PASSED
+ResourceUploadedMessageContractTest > listenerProcessesTheEventFromTheContract(List) PASSED
+SongServiceHttpContractTest > savesNewMetadata() PASSED
+SongServiceHttpContractTest > conflictMeansTheMetadataIsAlreadySaved() PASSED
+SongServiceHttpContractTest > validationErrorIsNotRetried() PASSED
+>>> :resource-processor:contractConsumerTest: 6 tests, 6 passed, 0 failed, 0 skipped <<<
+SongServiceDeleteContractTest > deletesTheMetadataOfSeveralSongs() PASSED
+>>> :resource-service:contractConsumerTest: 1 tests, 1 passed, 0 failed, 0 skipped <<<
+ResourceServicePactVerificationTest > verifyPact(PactVerificationContext) > resource-processor - a request for the file of resource 1 PASSED
+ResourceServicePactVerificationTest > verifyPact(PactVerificationContext) > resource-processor - a request for the file of resource 999 PASSED
+ResourceUploadedMessagePactVerificationTest > verifyPact(PactVerificationContext) > resource-processor - a resource uploaded event PASSED
+>>> :resource-service:contractProviderTest: 3 tests, 3 passed, 0 failed, 0 skipped <<<
+SongServicePactVerificationTest > verifyPact(PactVerificationContext) > resource-processor - a request to save metadata without the required fields PASSED
+SongServicePactVerificationTest > verifyPact(PactVerificationContext) > resource-processor - a request to save the metadata of resource 2 that is already saved PASSED
+SongServicePactVerificationTest > verifyPact(PactVerificationContext) > resource-processor - a request to save the metadata of resource 1 PASSED
+SongServicePactVerificationTest > verifyPact(PactVerificationContext) > resource-service - a request to delete the metadata of songs 1 and 2 PASSED
+>>> :song-service:contractProviderTest: 4 tests, 4 passed, 0 failed, 0 skipped <<<
+BUILD SUCCESSFUL in 5m 47s
+
+====================================================================================================
+2. gradlew :e2e-tests:e2eTest (end-to-end, against the running docker compose stack through the gateway :8080)
+====================================================================================================
+End-to-end tests of the music library > Music library API > Uploaded MP3 becomes available with its metadata PASSED
+End-to-end tests of the music library > Music library API > Deleting a resource removes its file and its metadata PASSED
+End-to-end tests of the music library > Music library API > MP3 without required tags is stored but has no metadata PASSED
+End-to-end tests of the music library > Music library API > Metadata can not be created twice for the same id PASSED
+End-to-end tests of the music library > Music library API > A resource that does not exist is a 404 PASSED
+End-to-end tests of the music library > Music library API > A client that accepts only audio gets the error description too PASSED
+End-to-end tests of the music library > Music library API > Invalid requests are rejected PASSED
+>>> :e2e-tests:e2eTest: 7 tests, 7 passed, 0 failed, 0 skipped <<<
+BUILD SUCCESSFUL in 43s
+
+====================================================================================================
+3. Regression of Module 2: newman run module_2.postman_collection.json
+====================================================================================================
+│              iterations │                 1 │                 0 │
+│                requests │                10 │                 0 │
+│            test-scripts │                10 │                 0 │
+│              assertions │                18 │                 0 │
+
+====================================================================================================
+4. Summary
+====================================================================================================
+>>> :resource-processor:test: 26 tests, 26 passed, 0 failed, 0 skipped <<<
+>>> :resource-service:test: 33 tests, 33 passed, 0 failed, 0 skipped <<<
+>>> :resource-processor:integrationTest: 9 tests, 9 passed, 0 failed, 0 skipped <<<
+>>> :resource-service:integrationTest: 20 tests, 20 passed, 0 failed, 0 skipped <<<
+>>> :resource-processor:componentTest: 5 tests, 5 passed, 0 failed, 0 skipped <<<
+>>> :resource-processor:contractConsumerTest: 6 tests, 6 passed, 0 failed, 0 skipped <<<
+>>> :resource-service:contractConsumerTest: 1 tests, 1 passed, 0 failed, 0 skipped <<<
+>>> :resource-service:contractProviderTest: 3 tests, 3 passed, 0 failed, 0 skipped <<<
+>>> :song-service:contractProviderTest: 4 tests, 4 passed, 0 failed, 0 skipped <<<
+>>> :e2e-tests:e2eTest: 7 tests, 7 passed, 0 failed, 0 skipped <<<
