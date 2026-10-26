@@ -1,15 +1,11 @@
-package com.music.resource.model;
+package com.music.processor.metadata;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class MetadataDto {
+public class Mp3Metadata {
 
     private String name;
     private String artist;

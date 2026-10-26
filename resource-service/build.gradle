@@ -35,8 +35,8 @@ dependencies {
     implementation "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok"
 
-    // mp3 services
-    implementation("com.mpatric:mp3agic:$mpatricVersion")
+    // S3 (LocalStack in dev) - storage for mp3 files
+    implementation 'software.amazon.awssdk:s3'
 
     // mapstruct
     implementation "org.mapstruct:mapstruct:$mapStructVersion"
@@ -46,6 +46,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:2024.0.0"
+        mavenBom "software.amazon.awssdk:bom:$awsSdkVersion"
     }
 }
 

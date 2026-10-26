@@ -45,9 +45,9 @@ public class ResourcesController implements ResourcesControllerApi {
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("audio/mpeg"))
-                .contentLength(content.getFileSize())
+                .contentLength(content.getSize())
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .body(content.getFileData());
+                .body(content.getData());
     }
 
     @Override

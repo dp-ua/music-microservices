@@ -1,19 +1,21 @@
 package com.music.resource.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import static org.apache.commons.lang3.ArrayUtils.isEmpty;
 
-import com.music.resource.validator.CSVValidator;
+import org.springframework.stereotype.Service;
+
 import com.music.resource.client.song.SongServiceClientProxy;
 import com.music.resource.controller.dto.ResourceUploadedDto;
 import com.music.resource.controller.dto.ResourcesDeletedDto;
 import com.music.resource.exception.ResourceException;
 import com.music.resource.exception.ResourceNotFoundException;
-import com.music.resource.mapper.MetadataMapper;
 import com.music.resource.mapper.ResourceMapper;
 import com.music.resource.model.AudioResource;
+import com.music.resource.model.ResourceFile;
 import com.music.resource.repository.ResourcesRepository;
-import com.music.resource.utils.MetadataUtilParser;
+import com.music.resource.storage.FileStorage;
+import com.music.resource.storage.StorageLocation;
+import com.music.resource.validator.CSVValidator;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,46 +26,48 @@ import lombok.extern.slf4j.Slf4j;
 public class ResourcesServiceImpl implements ResourcesService {
 
     private final SongServiceClientProxy songServiceClientProxy;
-    private final MetadataMapper metadataMapper;
     private final ResourceMapper resourceMapper;
     private final ResourcesRepository resourcesRepository;
+    private final FileStorage fileStorage;
     private final CSVValidator validator;
 
     @Override
-    @Transactional
     public ResourceUploadedDto uploadResource(byte[] fileData) {
-        var resourceId = saveFileToRepository(fileData);
-        var metadata = MetadataUtilParser.parseMetadata(fileData);
-        var clientDto = metadataMapper.toClientDtoWithId(metadata, resourceId);
+        if (isEmpty(fileData)) {
+            throw ResourceException.fileIsEmpty("unknown");
+        }
 
-        log.info("Try to send metadata to song-service. DTO: {}", clientDto);
-        songServiceClientProxy.uploadMetadata(clientDto);
+        var location = fileStorage.upload(fileData);
+        var resourceId = saveLocation(location, fileData.length);
 
-        log.info("Resource uploaded with id: {}", resourceId);
+        log.info("Resource uploaded with id: {}, location: {}", resourceId, location);
         return ResourceUploadedDto.builder()
                 .id(resourceId)
                 .build();
     }
 
     @Override
-    public AudioResource getResource(Long id) {
+    public ResourceFile getResource(Long id) {
         log.info("Getting resource with id {}", id);
-        return resourcesRepository.findById(id)
-                .filter(resource -> !resource.getIsDeleted())
+        var resource = resourcesRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.byId(id));
+
+        var data = fileStorage.download(resourceMapper.toLocation(resource));
+        return resourceMapper.toResourceFile(resource, data);
     }
 
     @Override
-    @Transactional
     public ResourcesDeletedDto deleteResources(String id) {
         var ids = validator.parseAndValidateIds(id);
 
-        var existingIds = resourcesRepository.findAllByIdInAndNotDeleted(ids).stream()
+        var resources = resourcesRepository.findAllById(ids);
+        var existingIds = resources.stream()
                 .map(AudioResource::getId)
                 .toList();
 
         if (!existingIds.isEmpty()) {
-            resourcesRepository.softDeleteByIdIn(existingIds);
+            resources.forEach(resource -> fileStorage.delete(resourceMapper.toLocation(resource)));
+            resourcesRepository.deleteAllInBatch(resources);
             songServiceClientProxy.delete(existingIds);
         }
 
@@ -73,16 +77,24 @@ public class ResourcesServiceImpl implements ResourcesService {
                 .build();
     }
 
-    private Long saveFileToRepository(byte[] fileData) {
-        if (fileData == null || fileData.length == 0) {
-            throw ResourceException.fileIsEmpty("unknown");
+    private Long saveLocation(StorageLocation location, long fileSize) {
+        try {
+            return resourcesRepository
+                    .save(resourceMapper.toEntity(location, fileSize))
+                    .getId();
+        } catch (RuntimeException e) {
+            log.error("Can't save resource location {}, removing the uploaded file", location, e);
+            compensateUpload(location, e);
+            throw e;
         }
+    }
 
-        var fileSize = (long) fileData.length;
-
-        return resourcesRepository
-                .save(resourceMapper.toEntity(fileData, fileSize))
-                .getId();
+    private void compensateUpload(StorageLocation location, RuntimeException cause) {
+        try {
+            fileStorage.delete(location);
+        } catch (RuntimeException cleanupError) {
+            cause.addSuppressed(cleanupError);
+        }
     }
 
 }

@@ -28,8 +28,11 @@ public class AudioResource {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "file_data", nullable = false, columnDefinition = "BYTEA")
-    private byte[] fileData;
+    @Column(name = "storage_bucket", nullable = false)
+    private String storageBucket;
+
+    @Column(name = "storage_key", nullable = false)
+    private String storageKey;
 
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
@@ -41,9 +44,5 @@ public class AudioResource {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    @Column(name = "is_deleted", nullable = false)
-    @Builder.Default
-    private Boolean isDeleted = false;
 
 }
