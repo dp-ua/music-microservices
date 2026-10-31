@@ -1,4 +1,5 @@
 @echo off
-cd test-data
-newman run module_2.postman_collection.json
+pushd "%~dp0test-data"
+call newman run module_2.postman_collection.json
+popd
 pause
