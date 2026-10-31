@@ -1,0 +1,116 @@
+// Shared test configuration of the service modules (Module 3).
+// Applied from a module's build.gradle, after its plugins {} and dependencyManagement {} blocks:
+//     apply from: "$rootDir/gradle/testing.gradle"
+//
+// Test types and the Gradle tasks that run them:
+//     test                  unit tests (no Docker)                    src/test
+//     integrationTest       layer + real infrastructure (Docker)      src/integrationTest
+//     componentTest         Cucumber scenarios of one service (Docker) src/componentTest
+//     contractConsumerTest  Pact consumer tests, write pact files     src/contractConsumerTest
+//     contractProviderTest  Pact provider tests, replay pact files    src/contractProviderTest
+// The end-to-end tests live in their own module (e2e-tests).
+
+apply plugin: 'jacoco'
+
+dependencyManagement {
+    imports {
+        mavenBom "io.cucumber:cucumber-bom:${cucumberVersion}"
+    }
+}
+
+dependencies {
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.awaitility:awaitility'
+    // Gradle 9 does not provide the JUnit launcher itself
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def additionalSuites = ['integrationTest', 'componentTest', 'contractConsumerTest', 'contractProviderTest']
+
+additionalSuites.each { suite ->
+    def suiteSourceSet = sourceSets.create(suite) {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+
+    // every suite sees the main classes and everything the unit tests see
+    configurations.named("${suite}Implementation") { extendsFrom configurations.testImplementation }
+    configurations.named("${suite}RuntimeOnly") { extendsFrom configurations.testRuntimeOnly }
+
+    tasks.register(suite, Test) {
+        group = 'verification'
+        description = "Runs the ${suite} tests."
+        testClassesDirs = suiteSourceSet.output.classesDirs
+        classpath = suiteSourceSet.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+}
+
+// MP3 samples are shared by all test types, they are not copied into the modules
+sourceSets.matching { it.name != 'main' }.configureEach { testSourceSet ->
+    tasks.named(testSourceSet.processResourcesTaskName) {
+        from("$rootDir/test-data") {
+            include '*.mp3'
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+        showStandardStreams = false
+    }
+
+    // Always run the tests: no "up-to-date" skipping. The tests depend on Docker containers and on other services,
+    // so a green result of a previous run is not a proof, and every run must print its results.
+    outputs.upToDateWhen { false }
+
+    // One summary line per run, e.g. ">>> :resource-service:test: 33 tests, 33 passed, 0 failed, 0 skipped <<<"
+    afterSuite { descriptor, result ->
+        if (!descriptor.parent) {
+            println ">>> ${path}: ${result.testCount} tests, ${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, ${result.skippedTestCount} skipped <<<"
+        }
+    }
+
+    // Docker runs in WSL2 and is not visible from Windows by default. Testcontainers needs its TCP endpoint.
+    // Nothing changes when the user has already set DOCKER_HOST.
+    if (!System.getenv('DOCKER_HOST') && System.getProperty('os.name').toLowerCase().contains('windows')) {
+        environment 'DOCKER_HOST', 'tcp://localhost:2375'
+        environment 'TESTCONTAINERS_HOST_OVERRIDE', 'localhost'
+    }
+}
+
+// Pact: the consumer tests write the pact files to <module>/build/pacts. The old files are overwritten, not merged,
+// so a removed test can not leave a stale contract behind.
+tasks.named('contractConsumerTest') {
+    systemProperty 'pact.rootDir', layout.buildDirectory.dir('pacts').get().asFile.absolutePath
+    systemProperty 'pact.writer.overwrite', 'true'
+    doFirst { delete layout.buildDirectory.dir('pacts') }
+}
+
+// The provider tests read the contracts of all consumers from one shared folder (see the root build.gradle).
+tasks.named('contractProviderTest') {
+    dependsOn ':publishPacts'
+}
+
+jacoco {
+    toolVersion = jacocoVersion
+}
+
+// Coverage of the unit and the integration tests together: gradlew test integrationTest jacocoCoverageReport
+tasks.register('jacocoCoverageReport', JacocoReport) {
+    group = 'verification'
+    description = 'Coverage report of the unit and integration tests (uses the exec files that exist).'
+    executionData.from(fileTree(layout.buildDirectory.dir('jacoco')).include('test.exec', 'integrationTest.exec'))
+    sourceSets sourceSets.main
+    reports {
+        html.required = true
+        xml.required = true
+    }
+    mustRunAfter tasks.named('test'), tasks.named('integrationTest')
+}

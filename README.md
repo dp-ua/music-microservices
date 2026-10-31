@@ -321,14 +321,55 @@ S3 and `song-service` cannot be rolled back, so `DELETE /resources` is not trans
 then the DB record, then the metadata. If `song-service` is down, the resource is already deleted and the request fails
 with 502/503.
 
-### Unit Tests Are Disabled
+---
 
-All modules have `tasks.named('test') { enabled = false }` in their `build.gradle`. Testing is done exclusively through
-Postman integration tests and the manual scenarios below.
+## Testing
+
+Five kinds of tests, each with its own Gradle task. The approach and the reasons for the mix are in
+[task/modul3/testing-strategy.md](task/modul3/testing-strategy.md).
+
+| Kind        | What it checks                                                | Command                                                    | Needs                           |
+|-------------|---------------------------------------------------------------|------------------------------------------------------------|---------------------------------|
+| Unit        | Logic of one class (JUnit 5, Mockito, AssertJ)                | `gradlew test`                                             | nothing                         |
+| Integration | One layer with a real PostgreSQL, S3 (LocalStack), RabbitMQ   | `gradlew integrationTest`                                  | Docker (Testcontainers)         |
+| Component   | `resource-processor` as a black box (Cucumber, WireMock)      | `gradlew componentTest`                                    | Docker (Testcontainers)         |
+| Contract    | HTTP and messaging contracts between services (Pact)         | `gradlew contractTests`                                    | nothing                         |
+| End-to-end  | The whole stack through the gateway (Cucumber, REST-assured)  | `04_run_e2e.cmd`                                           | the running stack, see below    |
+
+All kinds except end-to-end at once, with the coverage report: `03_run_gradle_tests.cmd`.
+
+**Docker for the tests.** Integration and component tests start their own containers (Testcontainers), nothing has to
+run before them. If Docker runs inside WSL2, `gradle/testing.gradle` points Testcontainers to `tcp://localhost:2375`
+(the Docker daemon must listen on it). Set `DOCKER_HOST` yourself to use another address.
+
+**End-to-end tests** do not start anything. First start the whole stack, then run the tests:
+
+```cmd
+01_start_services_wsl.cmd        rem Docker inside WSL2
+01_start_services_docker.cmd     rem Docker in the Windows PATH
+04_run_e2e.cmd
+```
+
+`04_run_e2e.cmd` checks that the gateway answers and says what to do if it does not. Another address:
+`set E2E_BASE_URL=http://host:8080`.
+
+**Contract tests** work in three steps that `gradlew contractTests` runs in one command: the consumer tests
+(`resource-processor`, `resource-service`) write pact files to `<module>/build/pacts`, `publishPacts` copies them to
+`build/pacts-shared`, the provider tests (`song-service`, `resource-service`) replay them against the real controllers
+and the real publisher. Seven contracts: the event `resource uploaded` (messaging), `GET /resources/{id}` (200, 404),
+`POST /songs` (200, 409, 400), `DELETE /songs`.
+
+**Reports** (open `index.html`): test results `<module>/build/reports/tests/<suite>`, Cucumber
+`<module>/build/reports/cucumber`, coverage (unit + integration) `<module>/build/reports/jacoco/jacocoCoverageReport/html`.
+Every suite also prints one line, for example `>>> :resource-service:test: 33 tests, 33 passed, 0 failed, 0 skipped <<<`.
+The tests are never skipped as up to date.
+
+Test sources: `<module>/src/{test,integrationTest,componentTest,contractConsumerTest,contractProviderTest}`, end-to-end
+tests in the module `e2e-tests`. The MP3 samples are taken from `test-data/`.
 
 ---
 
-## Integration Tests (Postman / Newman)
+## Regression Tests (Postman / Newman, Module 2)
 
 Tests are located in the `test-data/` folder. [Newman](https://www.npmjs.com/package/newman) is required to run them.
 
@@ -392,12 +433,12 @@ Run them with `docker compose logs -f resource-service resource-processor`. Uplo
 
 ## Requirements
 
-| Tool   | Version                                     |
-|--------|---------------------------------------------|
-| Java   | 21+ (only to build locally without Docker)  |
-| Gradle | Wrapper included                            |
-| Docker | Any recent version with Docker Compose      |
-| Newman | Any recent version (integration tests only) |
+| Tool   | Version                                            |
+|--------|----------------------------------------------------|
+| Java   | 21+ (only to build locally without Docker)         |
+| Gradle | Wrapper included                                   |
+| Docker | Any recent version with Docker Compose             |
+| Newman | Any recent version (Postman regression tests only) |
 
 ---
 

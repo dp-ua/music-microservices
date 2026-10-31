@@ -2,6 +2,7 @@ package com.music.resource.advice;
 
 import java.util.Map;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +21,9 @@ public class ErrorResponseFactory {
                 .errorCode(errorCode)
                 .details(details)
                 .build();
-        return ResponseEntity.status(Integer.parseInt(errorCode)).body(response);
+        return ResponseEntity.status(Integer.parseInt(errorCode))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(response);
     }
 
 }
