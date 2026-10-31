@@ -24,7 +24,7 @@ RUN ./gradlew :api-gateway:dependencies --no-daemon
 
 # Copy source code and build
 COPY api-gateway/src api-gateway/src
-RUN ./gradlew :api-gateway:assemble --no-daemon -x test
+RUN ./gradlew :api-gateway:bootJar --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

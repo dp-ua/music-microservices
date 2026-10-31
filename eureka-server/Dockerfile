@@ -24,7 +24,7 @@ RUN ./gradlew :eureka-server:dependencies --no-daemon
 
 # Copy source code and build
 COPY eureka-server/src eureka-server/src
-RUN ./gradlew :eureka-server:assemble --no-daemon -x test
+RUN ./gradlew :eureka-server:bootJar --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

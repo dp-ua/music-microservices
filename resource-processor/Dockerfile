@@ -24,7 +24,7 @@ RUN ./gradlew :resource-processor:dependencies --no-daemon
 
 # Copy source code and build
 COPY resource-processor/src resource-processor/src
-RUN ./gradlew :resource-processor:assemble --no-daemon -x test
+RUN ./gradlew :resource-processor:bootJar --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

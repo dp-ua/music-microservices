@@ -24,7 +24,7 @@ RUN ./gradlew :resource-service:dependencies --no-daemon
 
 # Copy source code and build
 COPY resource-service/src resource-service/src
-RUN ./gradlew :resource-service:assemble --no-daemon -x test
+RUN ./gradlew :resource-service:bootJar --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
@@ -39,6 +39,6 @@ RUN chown appuser:appgroup app.jar
 
 USER appuser
 
-EXPOSE 8080
+EXPOSE 8081
 
 CMD ["java", "-jar", "app.jar"]
