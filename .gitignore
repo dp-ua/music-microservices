@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
 build/
+#pi
+.pi/
 
 # IDE
 .idea/
