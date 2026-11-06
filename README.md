@@ -288,6 +288,53 @@ docker exec rabbitmq rabbitmqctl list_queues name messages consumers
 
 ---
 
+## Service Discovery
+
+All services find each other through the **Eureka** service registry (`eureka-server`, `:8761`) instead of fixed
+addresses.
+
+- **Registration:** `resource-service`, `song-service` and `api-gateway` register themselves in Eureka on startup
+  (self-registration pattern) and send a heartbeat to keep the registration alive. `resource-processor` has no web
+  endpoints, so it does not register. It only reads the registry to find the other services.
+- **Discovery:** the client asks Eureka for the instances of a service name and picks one itself (client-side
+  discovery). `resource-processor` does this with OpenFeign + Spring Cloud LoadBalancer, `api-gateway` with `lb://`
+  routes.
+- **Scaling:** any service with a registered name can be started in several instances
+  (`docker compose up -d --scale <service>=N`). The instances have no fixed host ports, so they do not clash, and
+  requests are balanced between them.
+
+### Discovery endpoint
+
+`api-gateway` shows what is registered in Eureka. It is placed in the gateway because it is the single entry point
+with a published port; `resource-service` and `song-service` have none, and any of them can run in several instances.
+
+| Request                                                | Result                                          |
+|--------------------------------------------------------|-------------------------------------------------|
+| `GET http://localhost:8080/service-instances`          | registered services with instance count, e.g. `{"api-gateway":1,"song-service":2}` |
+| `GET http://localhost:8080/service-instances/song-service` | all instances of the service (host, port, uri) |
+
+A new instance appears in the list after a few seconds (registration and registry refresh are every 5 seconds).
+
+### Questions
+
+**What is Service Discovery? What is the purpose of a Service Registry?**
+In the cloud, instances get dynamic addresses and their number changes (scaling, failures, updates), so a client
+cannot keep addresses in a config file. Service Discovery is the mechanism that lets a client find the current network
+location of a service by its name. The Service Registry is the database behind it: instances register on startup,
+refresh the registration with a heartbeat and are removed on shutdown or when the heartbeat stops. Clients query it
+to get the list of available instances.
+
+**What is the difference between server-side and client-side balancing?**
+With client-side balancing, the client asks the registry itself, gets all instances and chooses one with its own
+algorithm (Eureka + Spring Cloud LoadBalancer in this project). With server-side balancing, the client sends the
+request to a load balancer (AWS ELB, NGINX, Kubernetes proxy), which asks the registry and forwards the request to one
+of the instances. The client knows nothing about the instances.
+
+**What are the benefits of server-side balancing?**
+The discovery logic is hidden from the client, so it is not needed in every language and framework. Clients stay
+simple and are not coupled to the registry. The balancing rules are in one place. Some environments (Kubernetes, AWS)
+provide it for free. The price is one more highly available component that has to be run and managed.
+
 ## Resource Processor
 
 A Spring Boot application (`web-application-type: none`) with no controllers. It is a listener of the queue
