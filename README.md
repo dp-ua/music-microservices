@@ -39,7 +39,8 @@ Client / Postman
 
 | Module               | Description                                                                                          |
 |----------------------|------------------------------------------------------------------------------------------------------|
-| `api-gateway`        | Single entry point (`:8080`), routes `/resources/**` and `/songs/**` to services via Eureka          |
+| `api-gateway`        | Single entry point (`:8080`), routes `/resources/**`, `/songs/**` and `/storages/**` via Eureka       |
+| `storage-service`    | Storage types STAGING / PERMANENT (bucket, path), CRUD API (`/storages`), database `storage-db`       |
 | `eureka-server`      | Service registry (`:8761`)                                                                           |
 | `resource-service`   | Accepts MP3 files, stores them in S3, keeps their location in its DB, publishes the upload event     |
 | `song-service`       | Stores track metadata (title, artist, album, duration, year)                                         |
@@ -287,6 +288,51 @@ docker exec rabbitmq rabbitmqctl list_queues name messages consumers
 ```
 
 ---
+
+## Storage Service and Circuit Breaker (Module 6)
+
+`storage-service` (`:8083`, own database `storage-db`) describes **where** the files of each processing state live.
+A storage has `storageType` (`STAGING` or `PERMANENT`), `bucket` and `path`. Two storages are pre-created on start
+(`init-scripts/storage-db/init.sql`): `STAGING` -> `staging-bucket`, `PERMANENT` -> `permanent-bucket`, path `/files`.
+The buckets are created in LocalStack by `init-scripts/localstack/01-create-bucket.sh`.
+
+| Method   | Path                | Description                                                         | Codes         |
+|----------|---------------------|---------------------------------------------------------------------|---------------|
+| `POST`   | `/storages`         | `{"storageType":"PERMANENT","bucket":"b","path":"/files"}` -> `{"id":1}` | 200, 400, 500 |
+| `GET`    | `/storages`         | List of `{id, storageType, bucket, path}`                           | 200, 500      |
+| `DELETE` | `/storages?id=1,2`  | Deletes the listed storages (unknown ids are ignored) -> `{"ids":[1,2]}`, CSV < 200 characters | 200, 400, 500 |
+
+### Flow of a file
+
+```
+POST /resources -> resource-service: STAGING storage (GET /storages, storage-service)
+                -> file to s3://staging-bucket/files/<uuid>.mp3, state=STAGING in resource-db
+                -> event "resource uploaded" (queue resource.uploaded)
+resource-processor: download, extract metadata, save to song-service
+                -> event "resource processed" (queue resource.processed)
+resource-service: PERMANENT storage -> copy of the file to s3://permanent-bucket/files/,
+                  state=PERMANENT and the new location in resource-db, then the staging file is deleted
+```
+
+S3 has no move, so the file is copied, the database is updated, and only then the source is deleted: whatever fails,
+the file is not lost. A repeated "processed" message for a PERMANENT resource is ignored.
+
+### Circuit breaker (Resilience4j)
+
+The call `resource-service` -> `storage-service` (`StorageServiceClientProxyImpl`) is protected by the circuit breaker
+`storage-service` (`resilience4j.circuitbreaker` in `resource-service/application.yml`: 5 calls window, 50% failures,
+15 s in the OPEN state). If the call fails or the circuit is open, the **stub** from `storage.stub` is returned: the same
+structure as the real answer (`id`, `storageType`, `bucket`, `path`) and the same buckets, so uploads and the move to
+PERMANENT continue to work. The state is visible in the `resource-service` container at `/actuator/circuitbreakers`.
+
+Demo:
+
+```bash
+docker compose stop storage-service
+curl -X POST -H "Content-Type: audio/mpeg" --data-binary "@test-data/valid-sample-with-required-tags.mp3" http://localhost:8080/resources   # still 200
+docker compose logs resource-service | grep "stub storages"        # fallback; circuit OPEN after the first failures
+docker compose start storage-service                                # after ~15 s the circuit is HALF_OPEN -> CLOSED
+```
 
 ## Service Discovery
 
