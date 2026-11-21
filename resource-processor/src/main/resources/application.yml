@@ -28,6 +28,8 @@ eureka:
     registry-fetch-interval-seconds: 5
 
 messaging:
+  resource-processed:
+    queue: "${RABBITMQ_PROCESSED_QUEUE:resource.processed}"
   resource-uploaded:
     queue: "${RABBITMQ_QUEUE:resource.uploaded}"
 

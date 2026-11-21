@@ -10,10 +10,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.annotation.EnableRetry;
 
 import com.music.processor.messaging.MessagingProperties;
+import com.music.processor.messaging.ProcessedMessagingProperties;
 
 @Configuration
 @EnableRetry
-@EnableConfigurationProperties(MessagingProperties.class)
+@EnableConfigurationProperties({MessagingProperties.class, ProcessedMessagingProperties.class})
 public class RabbitConfig {
 
     /**
@@ -21,6 +22,14 @@ public class RabbitConfig {
      */
     @Bean
     public Queue resourceUploadedQueue(MessagingProperties properties) {
+        return QueueBuilder.durable(properties.getQueue()).build();
+    }
+
+    /**
+     * Must be declared exactly as in resource-service, the broker rejects a redeclaration with other settings.
+     */
+    @Bean
+    public Queue resourceProcessedQueue(ProcessedMessagingProperties properties) {
         return QueueBuilder.durable(properties.getQueue()).build();
     }
 
