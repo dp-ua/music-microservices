@@ -7,6 +7,7 @@ import org.mapstruct.Mapping;
 
 import com.music.resource.model.AudioResource;
 import com.music.resource.model.ResourceFile;
+import com.music.resource.model.ResourceState;
 import com.music.resource.storage.StorageLocation;
 
 @Mapper(componentModel = SPRING)
@@ -16,9 +17,10 @@ public interface ResourceMapper {
     @Mapping(target = "storageBucket", source = "location.bucket")
     @Mapping(target = "storageKey", source = "location.key")
     @Mapping(target = "fileSize", source = "fileSize")
+    @Mapping(target = "state", source = "state")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    AudioResource toEntity(StorageLocation location, Long fileSize);
+    AudioResource toEntity(StorageLocation location, Long fileSize, ResourceState state);
 
     @Mapping(target = "data", source = "data")
     @Mapping(target = "size", source = "resource.fileSize")

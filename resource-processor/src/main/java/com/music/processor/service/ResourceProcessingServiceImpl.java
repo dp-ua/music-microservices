@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.music.processor.client.dto.SongMetadataDto;
 import com.music.processor.client.resource.ResourceServiceClientProxy;
 import com.music.processor.client.song.SongServiceClientProxy;
+import com.music.processor.messaging.ResourceProcessedPublisher;
 import com.music.processor.metadata.Mp3Metadata;
 import com.music.processor.metadata.Mp3MetadataExtractor;
 
@@ -24,6 +25,7 @@ public class ResourceProcessingServiceImpl implements ResourceProcessingService 
     private final ResourceServiceClientProxy resourceServiceClient;
     private final Mp3MetadataExtractor metadataExtractor;
     private final SongServiceClientProxy songServiceClient;
+    private final ResourceProcessedPublisher processedPublisher;
 
     @Override
     public void process(Long resourceId) {
@@ -34,6 +36,7 @@ public class ResourceProcessingServiceImpl implements ResourceProcessingService 
         logMissingFields(resourceId, metadata);
 
         songServiceClient.saveMetadata(toSongMetadata(resourceId, metadata));
+        processedPublisher.publishProcessed(resourceId);
         log.info("Resource {} processed", resourceId);
     }
 

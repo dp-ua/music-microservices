@@ -26,6 +26,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.MountableFile;
 
 import com.music.resource.model.AudioResource;
+import com.music.resource.model.ResourceState;
 
 import jakarta.persistence.EntityManager;
 
@@ -159,6 +160,7 @@ class ResourcesRepositoryIT {
         return AudioResource.builder()
                 .storageBucket("resources")
                 .storageKey(key)
+                .state(ResourceState.STAGING)
                 .fileSize(size)
                 .build();
     }

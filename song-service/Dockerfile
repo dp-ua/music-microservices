@@ -15,6 +15,7 @@ COPY resource-processor/build.gradle resource-processor/build.gradle
 COPY song-service/build.gradle song-service/build.gradle
 COPY eureka-server/build.gradle eureka-server/build.gradle
 COPY api-gateway/build.gradle api-gateway/build.gradle
+COPY storage-service/build.gradle storage-service/build.gradle
 
 # Fix Windows line endings and ensure gradlew is executable
 RUN sed -i 's/\r//' gradlew && chmod +x gradlew

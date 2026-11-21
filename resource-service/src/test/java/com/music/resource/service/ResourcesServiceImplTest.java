@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -24,6 +25,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.music.resource.client.song.SongServiceClientProxy;
+import com.music.resource.client.storage.StorageDto;
+import com.music.resource.client.storage.StorageRegistry;
+import com.music.resource.client.storage.StorageType;
 import com.music.resource.exception.InvalidIdException;
 import com.music.resource.exception.ResourceException;
 import com.music.resource.exception.ResourceNotFoundException;
@@ -31,6 +35,7 @@ import com.music.resource.exception.StorageException;
 import com.music.resource.mapper.ResourceMapperImpl;
 import com.music.resource.messaging.ResourceEventPublisher;
 import com.music.resource.model.AudioResource;
+import com.music.resource.model.ResourceState;
 import com.music.resource.repository.ResourcesRepository;
 import com.music.resource.storage.FileStorage;
 import com.music.resource.storage.StorageLocation;
@@ -44,7 +49,12 @@ import com.music.resource.validator.CSVValidator;
 class ResourcesServiceImplTest {
 
     private static final byte[] FILE = {10, 20, 30, 40};
-    private static final StorageLocation LOCATION = StorageLocation.builder().bucket("resources").key("a.mp3").build();
+    private static final StorageDto STAGING = new StorageDto(1L, StorageType.STAGING, "staging-bucket", "/files");
+    private static final StorageDto PERMANENT = new StorageDto(2L, StorageType.PERMANENT, "permanent-bucket", "/final");
+    private static final StorageLocation LOCATION =
+            StorageLocation.builder().bucket("staging-bucket").key("files/a.mp3").build();
+    private static final StorageLocation PERMANENT_LOCATION =
+            StorageLocation.builder().bucket("permanent-bucket").key("final/a.mp3").build();
 
     @Mock
     private SongServiceClientProxy songServiceClientProxy;
@@ -54,6 +64,8 @@ class ResourcesServiceImplTest {
     private FileStorage fileStorage;
     @Mock
     private ResourceEventPublisher eventPublisher;
+    @Mock
+    private StorageRegistry storageRegistry;
 
     private ResourcesServiceImpl service;
 
@@ -65,7 +77,10 @@ class ResourcesServiceImplTest {
                 resourcesRepository,
                 fileStorage,
                 eventPublisher,
-                new CSVValidator());
+                new CSVValidator(),
+                storageRegistry);
+        lenient().when(storageRegistry.get(StorageType.STAGING)).thenReturn(STAGING);
+        lenient().when(storageRegistry.get(StorageType.PERMANENT)).thenReturn(PERMANENT);
     }
 
     @Nested
@@ -75,14 +90,14 @@ class ResourcesServiceImplTest {
         @Test
         @DisplayName("The file goes to storage, the location to the database, then the event is published")
         void storesFileThenSavesLocationThenPublishesEvent() {
-            when(fileStorage.upload(FILE)).thenReturn(LOCATION);
+            when(fileStorage.upload("staging-bucket", "/files", FILE)).thenReturn(LOCATION);
             when(resourcesRepository.save(any(AudioResource.class))).thenReturn(resource(7L, "a.mp3"));
 
             var result = service.uploadResource(FILE);
 
             assertThat(result.getId()).isEqualTo(7L);
             var order = inOrder(fileStorage, resourcesRepository, eventPublisher);
-            order.verify(fileStorage).upload(FILE);
+            order.verify(fileStorage).upload("staging-bucket", "/files", FILE);
             order.verify(resourcesRepository).save(any(AudioResource.class));
             order.verify(eventPublisher).publishUploaded(7L);
         }
@@ -90,15 +105,16 @@ class ResourcesServiceImplTest {
         @Test
         @DisplayName("Only the location and the size are saved in the database, not the file")
         void savesLocationAndSize() {
-            when(fileStorage.upload(FILE)).thenReturn(LOCATION);
+            when(fileStorage.upload("staging-bucket", "/files", FILE)).thenReturn(LOCATION);
             when(resourcesRepository.save(any(AudioResource.class))).thenReturn(resource(7L, "a.mp3"));
 
             service.uploadResource(FILE);
 
             var captor = ArgumentCaptor.forClass(AudioResource.class);
             verify(resourcesRepository).save(captor.capture());
-            assertThat(captor.getValue().getStorageBucket()).isEqualTo("resources");
-            assertThat(captor.getValue().getStorageKey()).isEqualTo("a.mp3");
+            assertThat(captor.getValue().getStorageBucket()).isEqualTo("staging-bucket");
+            assertThat(captor.getValue().getStorageKey()).isEqualTo("files/a.mp3");
+            assertThat(captor.getValue().getState()).isEqualTo(ResourceState.STAGING);
             assertThat(captor.getValue().getFileSize()).isEqualTo(FILE.length);
             assertThat(captor.getValue().getId()).isNull();
         }
@@ -107,7 +123,7 @@ class ResourcesServiceImplTest {
         @DisplayName("If the database fails, the file is removed from storage and nothing is published")
         void databaseFailureRemovesFileAndPublishesNothing() {
             var dbError = new IllegalStateException("db is down");
-            when(fileStorage.upload(FILE)).thenReturn(LOCATION);
+            when(fileStorage.upload("staging-bucket", "/files", FILE)).thenReturn(LOCATION);
             when(resourcesRepository.save(any(AudioResource.class))).thenThrow(dbError);
 
             assertThatThrownBy(() -> service.uploadResource(FILE)).isSameAs(dbError);
@@ -121,7 +137,7 @@ class ResourcesServiceImplTest {
         void cleanupFailureIsSuppressed() {
             var dbError = new IllegalStateException("db is down");
             var cleanupError = StorageException.failed("delete", "a.mp3", null);
-            when(fileStorage.upload(FILE)).thenReturn(LOCATION);
+            when(fileStorage.upload("staging-bucket", "/files", FILE)).thenReturn(LOCATION);
             when(resourcesRepository.save(any(AudioResource.class))).thenThrow(dbError);
             doThrow(cleanupError).when(fileStorage).delete(LOCATION);
 
@@ -135,7 +151,7 @@ class ResourcesServiceImplTest {
         @DisplayName("If the storage fails, nothing is saved and nothing is published")
         void storageFailureStopsUpload() {
             var storageError = StorageException.failed("upload", "a.mp3", null);
-            when(fileStorage.upload(FILE)).thenThrow(storageError);
+            when(fileStorage.upload("staging-bucket", "/files", FILE)).thenThrow(storageError);
 
             assertThatThrownBy(() -> service.uploadResource(FILE)).isSameAs(storageError);
 
@@ -163,7 +179,7 @@ class ResourcesServiceImplTest {
         @DisplayName("The file is read from storage by the saved location")
         void readsFileByLocation() {
             when(resourcesRepository.findById(3L)).thenReturn(Optional.of(resource(3L, "a.mp3")));
-            when(fileStorage.download(LOCATION)).thenReturn(FILE);
+            when(fileStorage.download(StorageLocation.builder().bucket("resources").key("a.mp3").build())).thenReturn(FILE);
 
             var result = service.getResource(3L);
 
@@ -252,11 +268,108 @@ class ResourcesServiceImplTest {
 
     }
 
+    @Nested
+    @DisplayName("Resource processed: STAGING -> PERMANENT")
+    class MarkProcessed {
+
+        @Test
+        @DisplayName("The file is copied to PERMANENT, the database is updated, then the staging file is deleted")
+        void movesFileAndUpdatesDatabase() {
+            var staged = stagedResource(5L);
+            when(resourcesRepository.findById(5L)).thenReturn(Optional.of(staged));
+            when(fileStorage.copy(LOCATION, "permanent-bucket", "/final")).thenReturn(PERMANENT_LOCATION);
+
+            service.markProcessed(5L);
+
+            var order = inOrder(fileStorage, resourcesRepository);
+            order.verify(fileStorage).copy(LOCATION, "permanent-bucket", "/final");
+            order.verify(resourcesRepository).save(staged);
+            order.verify(fileStorage).delete(LOCATION);
+            assertThat(staged.getState()).isEqualTo(ResourceState.PERMANENT);
+            assertThat(staged.getStorageBucket()).isEqualTo("permanent-bucket");
+            assertThat(staged.getStorageKey()).isEqualTo("final/a.mp3");
+        }
+
+        @Test
+        @DisplayName("A resource that is already PERMANENT is not touched (repeated message)")
+        void repeatedMessageIsIgnored() {
+            var permanent = stagedResource(5L);
+            permanent.setState(ResourceState.PERMANENT);
+            when(resourcesRepository.findById(5L)).thenReturn(Optional.of(permanent));
+
+            service.markProcessed(5L);
+
+            verifyNoInteractions(fileStorage);
+            verify(resourcesRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("A resource that does not exist (deleted meanwhile) is ignored")
+        void unknownResourceIsIgnored() {
+            when(resourcesRepository.findById(5L)).thenReturn(Optional.empty());
+
+            service.markProcessed(5L);
+
+            verifyNoInteractions(fileStorage);
+        }
+
+        @Test
+        @DisplayName("If the database fails, the copy is removed and the staging file stays")
+        void databaseFailureRemovesCopy() {
+            var dbError = new IllegalStateException("db is down");
+            when(resourcesRepository.findById(5L)).thenReturn(Optional.of(stagedResource(5L)));
+            when(fileStorage.copy(LOCATION, "permanent-bucket", "/final")).thenReturn(PERMANENT_LOCATION);
+            when(resourcesRepository.save(any(AudioResource.class))).thenThrow(dbError);
+
+            assertThatThrownBy(() -> service.markProcessed(5L)).isSameAs(dbError);
+
+            verify(fileStorage).delete(PERMANENT_LOCATION);
+            verify(fileStorage, never()).delete(LOCATION);
+        }
+
+        @Test
+        @DisplayName("If the staging file can't be deleted, the move is still successful")
+        void sourceDeleteFailureIsIgnored() {
+            when(resourcesRepository.findById(5L)).thenReturn(Optional.of(stagedResource(5L)));
+            when(fileStorage.copy(LOCATION, "permanent-bucket", "/final")).thenReturn(PERMANENT_LOCATION);
+            doThrow(StorageException.failed("delete", "files/a.mp3", null)).when(fileStorage).delete(LOCATION);
+
+            service.markProcessed(5L);
+
+            verify(resourcesRepository).save(any(AudioResource.class));
+        }
+
+        @Test
+        @DisplayName("If the copy fails, nothing is changed")
+        void copyFailureChangesNothing() {
+            var storageError = StorageException.failed("copy", "files/a.mp3", null);
+            when(resourcesRepository.findById(5L)).thenReturn(Optional.of(stagedResource(5L)));
+            when(fileStorage.copy(LOCATION, "permanent-bucket", "/final")).thenThrow(storageError);
+
+            assertThatThrownBy(() -> service.markProcessed(5L)).isSameAs(storageError);
+
+            verify(resourcesRepository, never()).save(any());
+            verify(fileStorage, never()).delete(any());
+        }
+
+        private AudioResource stagedResource(Long id) {
+            return AudioResource.builder()
+                    .id(id)
+                    .storageBucket("staging-bucket")
+                    .storageKey("files/a.mp3")
+                    .state(ResourceState.STAGING)
+                    .fileSize((long) FILE.length)
+                    .build();
+        }
+
+    }
+
     private static AudioResource resource(Long id, String key) {
         return AudioResource.builder()
                 .id(id)
                 .storageBucket("resources")
                 .storageKey(key)
+                .state(ResourceState.STAGING)
                 .fileSize((long) FILE.length)
                 .build();
     }

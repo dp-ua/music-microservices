@@ -23,6 +23,7 @@ import com.music.processor.client.resource.ResourceServiceClientProxy;
 import com.music.processor.client.song.SongServiceClientProxy;
 import com.music.processor.exception.MetadataExtractionException;
 import com.music.processor.exception.RemoteServiceException;
+import com.music.processor.messaging.ResourceProcessedPublisher;
 import com.music.processor.metadata.Mp3Metadata;
 import com.music.processor.metadata.Mp3MetadataExtractor;
 
@@ -38,6 +39,8 @@ class ResourceProcessingServiceImplTest {
     private Mp3MetadataExtractor metadataExtractor;
     @Mock
     private SongServiceClientProxy songServiceClient;
+    @Mock
+    private ResourceProcessedPublisher processedPublisher;
     @InjectMocks
     private ResourceProcessingServiceImpl service;
 
@@ -49,10 +52,11 @@ class ResourceProcessingServiceImplTest {
 
         service.process(RESOURCE_ID);
 
-        var order = inOrder(resourceServiceClient, metadataExtractor, songServiceClient);
+        var order = inOrder(resourceServiceClient, metadataExtractor, songServiceClient, processedPublisher);
         order.verify(resourceServiceClient).download(RESOURCE_ID);
         order.verify(metadataExtractor).extract(FILE_DATA);
         order.verify(songServiceClient).saveMetadata(any(SongMetadataDto.class));
+        order.verify(processedPublisher).publishProcessed(RESOURCE_ID);
     }
 
     @Test
@@ -97,7 +101,7 @@ class ResourceProcessingServiceImplTest {
 
         assertThatThrownBy(() -> service.process(RESOURCE_ID)).isSameAs(failure);
 
-        verifyNoInteractions(metadataExtractor, songServiceClient);
+        verifyNoInteractions(metadataExtractor, songServiceClient, processedPublisher);
     }
 
     @Test
@@ -110,6 +114,7 @@ class ResourceProcessingServiceImplTest {
         assertThatThrownBy(() -> service.process(RESOURCE_ID)).isSameAs(failure);
 
         verify(songServiceClient, never()).saveMetadata(any());
+        verifyNoInteractions(processedPublisher);
     }
 
     @Test

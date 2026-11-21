@@ -30,6 +30,8 @@ class S3FileStorageIT {
 
     private static final String BUCKET = "resources-it";
     private static final String MISSING_BUCKET = "no-such-bucket";
+    private static final String PATH = "/files";
+    private static final String OTHER_BUCKET = "permanent-it";
 
     @Container
     static final LocalStackContainer LOCALSTACK = new LocalStackContainer(
@@ -42,9 +44,10 @@ class S3FileStorageIT {
 
     @BeforeAll
     static void setUp() throws IOException {
-        var properties = properties(BUCKET);
+        var properties = properties();
         s3Client = new S3Config().s3Client(properties);
         s3Client.createBucket(request -> request.bucket(BUCKET));
+        s3Client.createBucket(request -> request.bucket(OTHER_BUCKET));
         storage = new S3FileStorage(s3Client, properties);
 
         try (var stream = S3FileStorageIT.class.getResourceAsStream("/valid-sample-with-required-tags.mp3")) {
@@ -61,7 +64,7 @@ class S3FileStorageIT {
     @Test
     @DisplayName("A file is downloaded exactly as it was uploaded")
     void uploadThenDownloadReturnsSameBytes() {
-        var location = storage.upload(mp3);
+        var location = storage.upload(BUCKET, PATH, mp3);
 
         var downloaded = storage.download(location);
 
@@ -71,8 +74,8 @@ class S3FileStorageIT {
     @Test
     @DisplayName("The location points to the configured bucket, the key is a new .mp3 name every time")
     void uploadReturnsUniqueLocations() {
-        var first = storage.upload(mp3);
-        var second = storage.upload(mp3);
+        var first = storage.upload(BUCKET, PATH, mp3);
+        var second = storage.upload(BUCKET, PATH, mp3);
 
         assertThat(first.getBucket()).isEqualTo(BUCKET);
         assertThat(first.getKey()).endsWith(".mp3");
@@ -82,7 +85,7 @@ class S3FileStorageIT {
     @Test
     @DisplayName("The object is stored with the audio/mpeg content type")
     void uploadStoresContentType() {
-        var location = storage.upload(mp3);
+        var location = storage.upload(BUCKET, PATH, mp3);
 
         var metadata = s3Client.headObject(request -> request.bucket(location.getBucket()).key(location.getKey()));
 
@@ -91,9 +94,40 @@ class S3FileStorageIT {
     }
 
     @Test
+    @DisplayName("The key is built from the path of the storage: folder + new .mp3 name")
+    void keyStartsWithThePathOfTheStorage() {
+        var location = storage.upload(BUCKET, "/staging/files/", mp3);
+
+        assertThat(location.getKey()).startsWith("staging/files/").endsWith(".mp3");
+    }
+
+    @Test
+    @DisplayName("A copy is in the other bucket and path under the same name, the source stays")
+    void copyKeepsNameAndSource() {
+        var source = storage.upload(BUCKET, PATH, mp3);
+        var name = source.getKey().substring(source.getKey().lastIndexOf('/') + 1);
+
+        var copy = storage.copy(source, OTHER_BUCKET, "/permanent");
+
+        assertThat(copy.getBucket()).isEqualTo(OTHER_BUCKET);
+        assertThat(copy.getKey()).isEqualTo("permanent/" + name);
+        assertThat(storage.download(copy)).isEqualTo(mp3);
+        assertThat(storage.download(source)).isEqualTo(mp3);
+    }
+
+    @Test
+    @DisplayName("Copying a file that does not exist is a 404")
+    void copyOfUnknownFileIsNotFound() {
+        var unknown = StorageLocation.builder().bucket(BUCKET).key("never-uploaded.mp3").build();
+
+        assertThatThrownBy(() -> storage.copy(unknown, OTHER_BUCKET, PATH))
+                .isInstanceOfSatisfying(StorageException.class, e -> assertThat(e.getErrorCode()).isEqualTo("404"));
+    }
+
+    @Test
     @DisplayName("A deleted file can not be downloaded any more")
     void deletedFileIsNotFound() {
-        var location = storage.upload(mp3);
+        var location = storage.upload(BUCKET, PATH, mp3);
 
         storage.delete(location);
 
@@ -105,7 +139,7 @@ class S3FileStorageIT {
     @Test
     @DisplayName("Deleting the same file twice is not an error")
     void deleteIsIdempotent() {
-        var location = storage.upload(mp3);
+        var location = storage.upload(BUCKET, PATH, mp3);
         storage.delete(location);
 
         assertThatCode(() -> storage.delete(location)).doesNotThrowAnyException();
@@ -123,9 +157,9 @@ class S3FileStorageIT {
     @Test
     @DisplayName("A storage problem (the bucket does not exist) is a 500, not a 404")
     void missingBucketIsServerError() {
-        var storageWithoutBucket = new S3FileStorage(s3Client, properties(MISSING_BUCKET));
+        var storageWithoutBucket = new S3FileStorage(s3Client, properties());
 
-        assertThatThrownBy(() -> storageWithoutBucket.upload(mp3))
+        assertThatThrownBy(() -> storageWithoutBucket.upload(MISSING_BUCKET, PATH, mp3))
                 .isInstanceOfSatisfying(StorageException.class, e -> assertThat(e.getErrorCode()).isEqualTo("500"))
                 .hasMessageContaining("cannot upload");
 
@@ -134,13 +168,12 @@ class S3FileStorageIT {
                 .isInstanceOfSatisfying(StorageException.class, e -> assertThat(e.getErrorCode()).isEqualTo("500"));
     }
 
-    private static S3Properties properties(String bucket) {
+    private static S3Properties properties() {
         var properties = new S3Properties();
         properties.setEndpoint(LOCALSTACK.getEndpoint().toString());
         properties.setRegion(LOCALSTACK.getRegion());
         properties.setAccessKey(LOCALSTACK.getAccessKey());
         properties.setSecretKey(LOCALSTACK.getSecretKey());
-        properties.setBucket(bucket);
         properties.setPathStyleAccess(true);
         return properties;
     }
