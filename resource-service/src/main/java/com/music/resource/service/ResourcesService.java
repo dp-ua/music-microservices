@@ -12,4 +12,6 @@ public interface ResourcesService {
 
     ResourcesDeletedDto deleteResources(String ids);
 
+    void markProcessed(Long id);
+
 }

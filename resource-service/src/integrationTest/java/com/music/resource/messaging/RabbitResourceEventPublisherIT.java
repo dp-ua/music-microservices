@@ -19,6 +19,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -62,6 +63,7 @@ class RabbitResourceEventPublisherIT {
     private AmqpAdmin amqpAdmin;
 
     @Autowired
+    @Qualifier("resourceUploadedQueue")
     private Queue queue;
 
     /**

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -42,7 +43,7 @@ class ResourceUploadedMessagePactVerificationTest {
 
     @BeforeEach
     void setTarget(PactVerificationContext context) {
-        context.setTarget(new MessageTestTarget());
+        context.setTarget(new MessageTestTarget(List.of("com.music.resource.contract")));
     }
 
     @TestTemplate
