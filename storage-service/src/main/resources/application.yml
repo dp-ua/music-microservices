@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: storage-service
+
+  datasource:
+    url: "${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5435/storage_service}"
+    driver-class-name: org.postgresql.Driver
+    username: "${SPRING_DATASOURCE_USERNAME:postgres}"
+    password: "${SPRING_DATASOURCE_PASSWORD:postgres}"
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8083
+
+eureka:
+  instance:
+    lease-renewal-interval-in-seconds: 5
+  client:
+    service-url:
+      defaultZone: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}"
+    registry-fetch-interval-seconds: 5
