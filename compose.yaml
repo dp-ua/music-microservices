@@ -47,14 +47,32 @@ services:
       timeout: 5s
       retries: 5
 
+  storage-db:
+    image: postgres:17-alpine
+    container_name: storage-db
+    environment:
+      POSTGRES_DB: ${STORAGE_DB_NAME}
+      POSTGRES_USER: ${STORAGE_DB_USER}
+      POSTGRES_PASSWORD: ${STORAGE_DB_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./init-scripts/storage-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STORAGE_DB_USER} -d ${STORAGE_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # S3 emulator for MP3 files of resource-service.
-  # Bucket is created by init-scripts/localstack/01-create-bucket.sh once LocalStack is ready.
+  # The STAGING and PERMANENT buckets are created by init-scripts/localstack/01-create-bucket.sh once LocalStack is ready.
   localstack:
     image: localstack/localstack:3.8.1
     container_name: localstack
     environment:
       SERVICES: s3
-      S3_BUCKET: ${S3_BUCKET:-resources}
+      STAGING_BUCKET: ${STAGING_BUCKET:-staging-bucket}
+      PERMANENT_BUCKET: ${PERMANENT_BUCKET:-permanent-bucket}
     ports:
       - "4566:4566"
     volumes:
@@ -99,7 +117,6 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_SERVER_URL}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://localstack:4566}
       S3_REGION: ${S3_REGION:-us-east-1}
-      S3_BUCKET: ${S3_BUCKET:-resources}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-test}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-test}
       RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
@@ -107,6 +124,7 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit}
       RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-resource.uploaded}
+      RABBITMQ_PROCESSED_QUEUE: ${RABBITMQ_PROCESSED_QUEUE:-resource.processed}
     depends_on:
       resource-db:
         condition: service_healthy
@@ -137,6 +155,7 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit}
       RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-resource.uploaded}
+      RABBITMQ_PROCESSED_QUEUE: ${RABBITMQ_PROCESSED_QUEUE:-resource.processed}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -153,6 +172,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  # Storage types (STAGING / PERMANENT) and their buckets. resource-service calls it through Eureka, behind a
+  # circuit breaker: when this service is down, resource-service works with stub data.
+  storage-service:
+    build:
+      context: .
+      dockerfile: storage-service/Dockerfile
+    # No fixed port mapping and no container_name: random host port, Eureka handles discovery, can be scaled
+    environment:
+      SPRING_DATASOURCE_URL: ${STORAGE_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${STORAGE_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${STORAGE_DB_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_SERVER_URL}
+    depends_on:
+      storage-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   song-service:
     build:
