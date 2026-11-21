@@ -89,7 +89,7 @@
                   "if (pm.response.code === 404 && attempt < maxAttempts) {",
                   "    // not processed yet: the metadata is created asynchronously, ask again",
                   "    pm.collectionVariables.set(\"poll_attempts\", attempt + 1);",
-                  "    postman.setNextRequest(requestName);",
+                  "    pm.execution.setNextRequest(requestName);",
                   "} else {",
                   "    pm.collectionVariables.set(\"poll_attempts\", \"0\");",
                   "",

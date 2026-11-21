@@ -24,7 +24,7 @@ RUN ./gradlew :song-service:dependencies --no-daemon
 
 # Copy source code and build
 COPY song-service/src song-service/src
-RUN ./gradlew :song-service:assemble --no-daemon -x test
+RUN ./gradlew :song-service:bootJar --no-daemon -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
@@ -39,6 +39,6 @@ RUN chown appuser:appgroup app.jar
 
 USER appuser
 
-EXPOSE 8081
+EXPOSE 8082
 
 CMD ["java", "-jar", "app.jar"]
