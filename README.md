@@ -47,7 +47,7 @@ Client / Postman
 | `resource-processor` | Listens to the queue, downloads the MP3, extracts metadata (Apache Tika), saves it in `song-service` |
 
 Infrastructure containers: `resource-db`, `song-db`, `storage-db` (PostgreSQL), `localstack` (S3), `rabbitmq` (message broker),
-`elasticsearch` and `filebeat` (logs, see [Logging](#logging-module-7)).
+`elasticsearch` and `filebeat` (logs, see [Logging](#logging-module-7)), `prometheus` and `grafana` (see [Monitoring](#monitoring-module-7)).
 
 ---
 
@@ -244,6 +244,8 @@ docker compose down -v
 | `resource-processor` | Queue listener, metadata handling | none            | Runs permanently, no web interface             |
 | `elasticsearch`      | Log storage                       | `9200`          | Index `music-logs-<date>`, security is off     |
 | `filebeat`           | Log collector                     | none            | Docker logs of the services -> Elasticsearch   |
+| `prometheus`         | Metrics storage                   | `9090`          | Finds the services through Eureka              |
+| `grafana`            | Dashboards                        | `3000`          | `admin/admin`, dashboards JVM and API Gateway  |
 
 #### Scaling `song-service`
 
@@ -314,6 +316,33 @@ curl "http://localhost:9200/_cat/count/music-logs-*?v"
 curl "http://localhost:9200/music-logs-*/_search?q=service.name:resource-service&size=3&pretty"
 curl "http://localhost:9200/music-logs-*/_search?size=0&pretty" -H "Content-Type: application/json" -d "{\"aggs\":{\"s\":{\"terms\":{\"field\":\"service.name\"}}}}"
 ```
+
+---
+
+## Monitoring (Module 7)
+
+```
+services ── /actuator/prometheus ◄── Prometheus (:9090) ◄── Grafana (:3000) ──► Elasticsearch (logs)
+```
+
+- Every web service (gateway, resource, song, storage, eureka) has `micrometer-registry-prometheus` and exposes
+  `/actuator/prometheus`. All metrics have the label `application`. `resource-processor` has no web server, so it
+  has no metrics endpoint.
+- **API Gateway route for the metrics:** `http://localhost:8080/actuator/prometheus` (the gateway is the only service
+  with a published port). It also contains the metrics of the gateway routes (`spring_cloud_gateway_requests_*`).
+- **Prometheus** (`monitoring/prometheus/prometheus.yml`) finds the other services in Eureka (`eureka_sd_configs`), so
+  scaled instances (`--scale song-service=2`) are scraped automatically. Check: http://localhost:9090/targets.
+- **Grafana** (http://localhost:3000, `admin/admin`, overridable by `GRAFANA_USER` / `GRAFANA_PASSWORD`) is configured
+  from files in `monitoring/grafana`: the data sources Prometheus and Elasticsearch and two dashboards (auto-refresh 10 s):
+
+| Dashboard     | Panels                                                                                                  |
+|---------------|---------------------------------------------------------------------------------------------------------|
+| `JVM`         | heap / non-heap memory, GC pauses, threads, CPU, loaded classes, uptime (filters: application, instance) |
+| `API Gateway` | requests per second, p50/p95/p99 and average latency, 4xx / 5xx rate, requests and latency by route     |
+
+Check: open **Dashboards -> JVM** and **API Gateway**. To see traffic on the gateway dashboard, send requests, e.g.
+`curl http://localhost:8080/songs/1` in a loop. A dashboard can be edited in the UI and exported as JSON back to
+`monitoring/grafana/dashboards`.
 
 ---
 

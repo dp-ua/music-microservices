@@ -1,0 +1,24 @@
+apiVersion: 1
+
+datasources:
+  # metrics (JVM, API Gateway)
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 10s
+
+  # logs (the same index that Filebeat writes to)
+  - name: Elasticsearch
+    uid: elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    jsonData:
+      index: "music-logs-*"
+      timeField: "@timestamp"
+      logMessageField: message
+      logLevelField: log.level
