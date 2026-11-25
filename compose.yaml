@@ -4,6 +4,13 @@ services:
     build:
       context: .
       dockerfile: eureka-server/Dockerfile
+    labels:
+      # picked up by Filebeat (see monitoring/filebeat/filebeat.yml): only labelled containers are shipped to Elasticsearch
+      co.elastic.logs/enabled: "true"
+    environment:
+      # JSON logs (ECS format) to stdout, the banner would break the JSON stream
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_MAIN_BANNER_MODE: "off"
     container_name: eureka-server
     ports:
       - "8761:8761"
@@ -105,12 +112,56 @@ services:
       retries: 10
       start_period: 20s
 
+  # ---- Logging: services write JSON logs to stdout, Filebeat ships them to Elasticsearch ----
+
+  # Log storage. Single node, security off: local environment only. Query: http://localhost:9200/music-logs-*/_search
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # Log collector: reads the stdout logs of the containers labelled co.elastic.logs/enabled=true (through the Docker
+  # socket and the Docker log files) and writes them to the index music-logs-<date>.
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.3
+    container_name: filebeat
+    user: root
+    # strict.perms=false: the config file is mounted from the host (e.g. Windows) and has other owner/permissions
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat-data:/usr/share/filebeat/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
   resource-service:
     build:
       context: .
       dockerfile: resource-service/Dockerfile
     # No fixed port mapping and no container_name: random host port, Eureka handles discovery, can be scaled
+    labels:
+      # picked up by Filebeat (see monitoring/filebeat/filebeat.yml): only labelled containers are shipped to Elasticsearch
+      co.elastic.logs/enabled: "true"
     environment:
+      # JSON logs (ECS format) to stdout, the banner would break the JSON stream
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_MAIN_BANNER_MODE: "off"
       SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${RESOURCE_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${RESOURCE_DB_PASSWORD}
@@ -148,7 +199,13 @@ services:
       context: .
       dockerfile: resource-processor/Dockerfile
     restart: unless-stopped
+    labels:
+      # picked up by Filebeat (see monitoring/filebeat/filebeat.yml): only labelled containers are shipped to Elasticsearch
+      co.elastic.logs/enabled: "true"
     environment:
+      # JSON logs (ECS format) to stdout, the banner would break the JSON stream
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_MAIN_BANNER_MODE: "off"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_SERVER_URL}
       RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
@@ -180,7 +237,13 @@ services:
       context: .
       dockerfile: storage-service/Dockerfile
     # No fixed port mapping and no container_name: random host port, Eureka handles discovery, can be scaled
+    labels:
+      # picked up by Filebeat (see monitoring/filebeat/filebeat.yml): only labelled containers are shipped to Elasticsearch
+      co.elastic.logs/enabled: "true"
     environment:
+      # JSON logs (ECS format) to stdout, the banner would break the JSON stream
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_MAIN_BANNER_MODE: "off"
       SPRING_DATASOURCE_URL: ${STORAGE_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${STORAGE_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${STORAGE_DB_PASSWORD}
@@ -202,7 +265,13 @@ services:
       context: .
       dockerfile: song-service/Dockerfile
     # No fixed port mapping and no container_name: random host port, Eureka handles discovery, can be scaled
+    labels:
+      # picked up by Filebeat (see monitoring/filebeat/filebeat.yml): only labelled containers are shipped to Elasticsearch
+      co.elastic.logs/enabled: "true"
     environment:
+      # JSON logs (ECS format) to stdout, the banner would break the JSON stream
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_MAIN_BANNER_MODE: "off"
       SPRING_DATASOURCE_URL: ${SONG_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${SONG_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${SONG_DB_PASSWORD}
@@ -226,7 +295,13 @@ services:
     container_name: api-gateway
     ports:
       - "8080:8080"
+    labels:
+      # picked up by Filebeat (see monitoring/filebeat/filebeat.yml): only labelled containers are shipped to Elasticsearch
+      co.elastic.logs/enabled: "true"
     environment:
+      # JSON logs (ECS format) to stdout, the banner would break the JSON stream
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_MAIN_BANNER_MODE: "off"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_SERVER_URL}
     depends_on:
       eureka-server:
@@ -239,3 +314,5 @@ services:
 
 volumes:
   rabbitmq-data:
+  elasticsearch-data:
+  filebeat-data:

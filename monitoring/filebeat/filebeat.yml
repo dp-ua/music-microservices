@@ -1,0 +1,39 @@
+# Filebeat: ships the logs of the application containers to Elasticsearch.
+# Only containers with the label co.elastic.logs/enabled=true are collected (see compose.yaml).
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      templates:
+        # only containers with the label co.elastic.logs/enabled=true (Filebeat nests label names by dots)
+        - condition:
+            equals:
+              docker.container.labels.co.elastic.logs/enabled: "true"
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+
+processors:
+  # The services write one JSON document (ECS format) per line; unpack it to the root of the event.
+  # Lines that are not JSON (e.g. a JVM message before Spring starts) stay as plain text in "message".
+  - decode_json_fields:
+      fields: ["message"]
+      target: ""
+      overwrite_keys: true
+      add_error_key: false
+      max_depth: 3
+  - drop_fields:
+      fields: ["agent", "input", "ecs.version", "host", "docker"]
+      ignore_missing: true
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  index: "music-logs-%{+yyyy.MM.dd}"
+
+# custom index name: the template and the ILM policy have to be configured accordingly
+setup.ilm.enabled: false
+setup.template.name: "music-logs"
+setup.template.pattern: "music-logs-*"
+
+logging.level: warning

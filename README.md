@@ -46,7 +46,8 @@ Client / Postman
 | `song-service`       | Stores track metadata (title, artist, album, duration, year)                                         |
 | `resource-processor` | Listens to the queue, downloads the MP3, extracts metadata (Apache Tika), saves it in `song-service` |
 
-Infrastructure containers: `resource-db`, `song-db` (PostgreSQL), `localstack` (S3), `rabbitmq` (message broker).
+Infrastructure containers: `resource-db`, `song-db`, `storage-db` (PostgreSQL), `localstack` (S3), `rabbitmq` (message broker),
+`elasticsearch` and `filebeat` (logs, see [Logging](#logging-module-7)).
 
 ---
 
@@ -241,6 +242,8 @@ docker compose down -v
 | `resource-service`   | Resource API                      | none            | Port `8081` inside the network, Eureka         |
 | `song-service`       | Song API                          | none            | Port `8082` inside the network, Eureka         |
 | `resource-processor` | Queue listener, metadata handling | none            | Runs permanently, no web interface             |
+| `elasticsearch`      | Log storage                       | `9200`          | Index `music-logs-<date>`, security is off     |
+| `filebeat`           | Log collector                     | none            | Docker logs of the services -> Elasticsearch   |
 
 #### Scaling `song-service`
 
@@ -285,6 +288,31 @@ To inspect the queue: open http://localhost:15672 (Queues → `resource.uploaded
 
 ```cmd
 docker exec rabbitmq rabbitmqctl list_queues name messages consumers
+```
+
+---
+
+## Logging (Module 7)
+
+Logs of all services are collected in **Elasticsearch**.
+
+```
+service (JSON logs, ECS format, stdout) ─► Docker log file ─► Filebeat ─► Elasticsearch, index music-logs-<date>
+```
+
+- Every service writes one JSON document per line to stdout (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` in `compose.yaml`,
+  built-in Spring Boot 3.4 structured logging, no extra library). Locally (IDE, tests) the logs stay plain text.
+- **Filebeat** (`monitoring/filebeat/filebeat.yml`) reads the logs of the containers with the label
+  `co.elastic.logs/enabled=true`, unpacks the JSON and sends it to Elasticsearch. The infrastructure containers
+  (databases, RabbitMQ, ...) are not collected.
+- Useful fields: `@timestamp`, `log.level`, `log.logger`, `message`, `service.name`, `container.name`.
+
+Check:
+
+```cmd
+curl "http://localhost:9200/_cat/count/music-logs-*?v"
+curl "http://localhost:9200/music-logs-*/_search?q=service.name:resource-service&size=3&pretty"
+curl "http://localhost:9200/music-logs-*/_search?size=0&pretty" -H "Content-Type: application/json" -d "{\"aggs\":{\"s\":{\"terms\":{\"field\":\"service.name\"}}}}"
 ```
 
 ---
