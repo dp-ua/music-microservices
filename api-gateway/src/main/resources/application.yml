@@ -1,6 +1,9 @@
 spring:
   application:
     name: api-gateway
+  reactor:
+    # keeps the trace context between the reactive threads of the gateway
+    context-propagation: auto
   cloud:
     gateway:
       discovery:
@@ -25,6 +28,10 @@ server:
   port: 8080
 
 management:
+  tracing:
+    sampling:
+      # every request is traced (a demo project, no sampling)
+      probability: 1.0
   endpoints:
     web:
       exposure:

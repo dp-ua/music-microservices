@@ -29,6 +29,10 @@ eureka:
     registry-fetch-interval-seconds: 5
 
 management:
+  tracing:
+    sampling:
+      # every request is traced (a demo project, no sampling)
+      probability: 1.0
   endpoints:
     web:
       exposure:

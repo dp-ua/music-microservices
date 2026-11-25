@@ -10,6 +10,12 @@ spring:
     port: "${RABBITMQ_PORT:5672}"
     username: "${RABBITMQ_USER:rabbit}"
     password: "${RABBITMQ_PASSWORD:rabbit}"
+    template:
+      observation-enabled: true
+    listener:
+      simple:
+        # trace id is read from the message headers
+        observation-enabled: true
 
   cloud:
     openfeign:
@@ -40,3 +46,9 @@ processor:
     max-attempts: 3
     delay-ms: 500
     multiplier: 2
+
+management:
+  tracing:
+    sampling:
+      # every request is traced (a demo project, no sampling)
+      probability: 1.0

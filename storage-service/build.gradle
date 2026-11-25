@@ -23,6 +23,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     // /actuator/health for the Docker health check
+    // Distributed tracing (Module 7): trace id / span id in MDC (logs) and propagation through HTTP and RabbitMQ
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     // /actuator/prometheus: metrics for Prometheus (Grafana dashboards)
     implementation 'io.micrometer:micrometer-registry-prometheus'

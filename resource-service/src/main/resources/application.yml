@@ -19,8 +19,12 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
+      # trace id travels in the message headers (publisher side)
+      observation-enabled: true
     listener:
       simple:
+        # trace id is read from the message headers (consumer side)
+        observation-enabled: true
         # "resource processed": a failed move (e.g. S3 is down) is retried, then the message is dropped
         default-requeue-rejected: false
         retry:
@@ -117,6 +121,10 @@ services:
         get-storages: /storages
 
 management:
+  tracing:
+    sampling:
+      # every request is traced (a demo project, no sampling)
+      probability: 1.0
   endpoints:
     web:
       exposure:

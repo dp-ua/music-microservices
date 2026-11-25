@@ -47,7 +47,7 @@ Client / Postman
 | `resource-processor` | Listens to the queue, downloads the MP3, extracts metadata (Apache Tika), saves it in `song-service` |
 
 Infrastructure containers: `resource-db`, `song-db`, `storage-db` (PostgreSQL), `localstack` (S3), `rabbitmq` (message broker),
-`elasticsearch` and `filebeat` (logs, see [Logging](#logging-module-7)), `prometheus` and `grafana` (see [Monitoring](#monitoring-module-7)).
+`elasticsearch` and `filebeat` (logs, see [Logging](#logging-module-7)), `prometheus` and `grafana` (see [Monitoring](#monitoring-module-7)), tracing: [Tracing](#tracing-module-7).
 
 ---
 
@@ -343,6 +343,43 @@ services ── /actuator/prometheus ◄── Prometheus (:9090) ◄── Graf
 Check: open **Dashboards -> JVM** and **API Gateway**. To see traffic on the gateway dashboard, send requests, e.g.
 `curl http://localhost:8080/songs/1` in a loop. A dashboard can be edited in the UI and exported as JSON back to
 `monitoring/grafana/dashboards`.
+
+---
+
+## Tracing (Module 7)
+
+One upload goes through four services and RabbitMQ. All its log lines have the same **trace ID** (`traceId` field),
+so the whole path of a request can be found by this single value.
+
+```
+client ─► api-gateway ─HTTP─► resource-service ─queue─► resource-processor ─HTTP─► song-service
+  ▲        creates the         traceparent header       message header              traceparent header
+  └─ X-Trace-Id response header          (the same trace ID everywhere, a new span ID in every step)
+```
+
+- **Library:** Micrometer Tracing (Brave bridge), no tracing server. Every request is traced
+  (`management.tracing.sampling.probability=1.0`). Trace ID and span ID are put to the logging context (MDC), so
+  they are written to every JSON log line (`traceId`, `spanId`).
+- **Start:** `api-gateway` creates the trace ID for each incoming request (also for `POST /resources`) and returns it
+  in the `X-Trace-Id` response header (`TraceIdFilter`).
+- **HTTP:** the `traceparent` header (W3C) is added to every outgoing call (gateway routes, OpenFeign through
+  `feign-micrometer`) and read by the receiving service.
+- **RabbitMQ:** `spring.rabbitmq.template.observation-enabled` / `listener.simple.observation-enabled` put the same
+  header to the message properties on send and read it on receive (`resource.uploaded`, `resource.processed`).
+  `resource-processor` has the actuator dependency only for the observation auto-configuration, it has no endpoints.
+
+**How to find the logs of a request:**
+
+```cmd
+curl -i -X POST http://localhost:8080/resources -H "Content-Type: audio/mpeg" --data-binary @test-data/valid-sample-with-required-tags.mp3
+```
+
+1. Copy the value of the `X-Trace-Id` response header.
+2. Grafana (http://localhost:3000) -> Dashboards -> **Logs by Trace ID** -> paste the value to the `Trace ID` field.
+   The panel shows the logs of all services of this request in time order. Alternatively in **Explore** with the
+   data source Elasticsearch: `traceId:"<value>"`.
+3. Or directly in Elasticsearch:
+   `curl "http://localhost:9200/music-logs-*/_search?q=traceId:<value>&size=100&sort=@timestamp:asc&pretty"`.
 
 ---
 

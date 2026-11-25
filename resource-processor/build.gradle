@@ -21,6 +21,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-json'
 
+    // Observation/tracing auto-configuration (no endpoints are exposed: the service has no web server)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Distributed tracing (Module 7): trace id / span id in MDC (logs) and propagation through HTTP and RabbitMQ
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+    implementation 'io.github.openfeign:feign-micrometer'
+
     // Queue listener (RabbitMQ)
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
 
