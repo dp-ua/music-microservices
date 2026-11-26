@@ -46,7 +46,8 @@ Client / Postman
 | `song-service`       | Stores track metadata (title, artist, album, duration, year)                                         |
 | `resource-processor` | Listens to the queue, downloads the MP3, extracts metadata (Apache Tika), saves it in `song-service` |
 
-Infrastructure containers: `resource-db`, `song-db` (PostgreSQL), `localstack` (S3), `rabbitmq` (message broker).
+Infrastructure containers: `resource-db`, `song-db`, `storage-db` (PostgreSQL), `localstack` (S3), `rabbitmq` (message broker),
+`elasticsearch` and `filebeat` (logs, see [Logging](#logging-module-7)), `prometheus` and `grafana` (see [Monitoring](#monitoring-module-7)), tracing: [Tracing](#tracing-module-7).
 
 ---
 
@@ -241,6 +242,10 @@ docker compose down -v
 | `resource-service`   | Resource API                      | none            | Port `8081` inside the network, Eureka         |
 | `song-service`       | Song API                          | none            | Port `8082` inside the network, Eureka         |
 | `resource-processor` | Queue listener, metadata handling | none            | Runs permanently, no web interface             |
+| `elasticsearch`      | Log storage                       | `9200`          | Index `music-logs-<date>`, security is off     |
+| `filebeat`           | Log collector                     | none            | Docker logs of the services -> Elasticsearch   |
+| `prometheus`         | Metrics storage                   | `9090`          | Finds the services through Eureka              |
+| `grafana`            | Dashboards                        | `3000`          | `admin/admin`, dashboards JVM and API Gateway  |
 
 #### Scaling `song-service`
 
@@ -286,6 +291,95 @@ To inspect the queue: open http://localhost:15672 (Queues → `resource.uploaded
 ```cmd
 docker exec rabbitmq rabbitmqctl list_queues name messages consumers
 ```
+
+---
+
+## Logging (Module 7)
+
+Logs of all services are collected in **Elasticsearch**.
+
+```
+service (JSON logs, ECS format, stdout) ─► Docker log file ─► Filebeat ─► Elasticsearch, index music-logs-<date>
+```
+
+- Every service writes one JSON document per line to stdout (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` in `compose.yaml`,
+  built-in Spring Boot 3.4 structured logging, no extra library). Locally (IDE, tests) the logs stay plain text.
+- **Filebeat** (`monitoring/filebeat/filebeat.yml`) reads the logs of the containers with the label
+  `co.elastic.logs/enabled=true`, unpacks the JSON and sends it to Elasticsearch. The infrastructure containers
+  (databases, RabbitMQ, ...) are not collected.
+- Useful fields: `@timestamp`, `log.level`, `log.logger`, `message`, `service.name`, `container.name`.
+
+Check:
+
+```cmd
+curl "http://localhost:9200/_cat/count/music-logs-*?v"
+curl "http://localhost:9200/music-logs-*/_search?q=service.name:resource-service&size=3&pretty"
+curl "http://localhost:9200/music-logs-*/_search?size=0&pretty" -H "Content-Type: application/json" -d "{\"aggs\":{\"s\":{\"terms\":{\"field\":\"service.name\"}}}}"
+```
+
+---
+
+## Monitoring (Module 7)
+
+```
+services ── /actuator/prometheus ◄── Prometheus (:9090) ◄── Grafana (:3000) ──► Elasticsearch (logs)
+```
+
+- Every web service (gateway, resource, song, storage, eureka) has `micrometer-registry-prometheus` and exposes
+  `/actuator/prometheus`. All metrics have the label `application`. `resource-processor` has no web server, so it
+  has no metrics endpoint.
+- **API Gateway route for the metrics:** `http://localhost:8080/actuator/prometheus` (the gateway is the only service
+  with a published port). It also contains the metrics of the gateway routes (`spring_cloud_gateway_requests_*`).
+- **Prometheus** (`monitoring/prometheus/prometheus.yml`) finds the other services in Eureka (`eureka_sd_configs`), so
+  scaled instances (`--scale song-service=2`) are scraped automatically. Check: http://localhost:9090/targets.
+- **Grafana** (http://localhost:3000, `admin/admin`, overridable by `GRAFANA_USER` / `GRAFANA_PASSWORD`) is configured
+  from files in `monitoring/grafana`: the data sources Prometheus and Elasticsearch and two dashboards (auto-refresh 10 s):
+
+| Dashboard     | Panels                                                                                                  |
+|---------------|---------------------------------------------------------------------------------------------------------|
+| `JVM`         | heap / non-heap memory, GC pauses, threads, CPU, loaded classes, uptime (filters: application, instance) |
+| `API Gateway` | requests per second, p50/p95/p99 and average latency, 4xx / 5xx rate, requests and latency by route     |
+
+Check: open **Dashboards -> JVM** and **API Gateway**. To see traffic on the gateway dashboard, send requests, e.g.
+`curl http://localhost:8080/songs/1` in a loop. A dashboard can be edited in the UI and exported as JSON back to
+`monitoring/grafana/dashboards`.
+
+---
+
+## Tracing (Module 7)
+
+One upload goes through four services and RabbitMQ. All its log lines have the same **trace ID** (`traceId` field),
+so the whole path of a request can be found by this single value.
+
+```
+client ─► api-gateway ─HTTP─► resource-service ─queue─► resource-processor ─HTTP─► song-service
+  ▲        creates the         traceparent header       message header              traceparent header
+  └─ X-Trace-Id response header          (the same trace ID everywhere, a new span ID in every step)
+```
+
+- **Library:** Micrometer Tracing (Brave bridge), no tracing server. Every request is traced
+  (`management.tracing.sampling.probability=1.0`). Trace ID and span ID are put to the logging context (MDC), so
+  they are written to every JSON log line (`traceId`, `spanId`).
+- **Start:** `api-gateway` creates the trace ID for each incoming request (also for `POST /resources`) and returns it
+  in the `X-Trace-Id` response header (`TraceIdFilter`).
+- **HTTP:** the `traceparent` header (W3C) is added to every outgoing call (gateway routes, OpenFeign through
+  `feign-micrometer`) and read by the receiving service.
+- **RabbitMQ:** `spring.rabbitmq.template.observation-enabled` / `listener.simple.observation-enabled` put the same
+  header to the message properties on send and read it on receive (`resource.uploaded`, `resource.processed`).
+  `resource-processor` has the actuator dependency only for the observation auto-configuration, it has no endpoints.
+
+**How to find the logs of a request:**
+
+```cmd
+curl -i -X POST http://localhost:8080/resources -H "Content-Type: audio/mpeg" --data-binary @test-data/valid-sample-with-required-tags.mp3
+```
+
+1. Copy the value of the `X-Trace-Id` response header.
+2. Grafana (http://localhost:3000) -> Dashboards -> **Logs by Trace ID** -> paste the value to the `Trace ID` field.
+   The panel shows the logs of all services of this request in time order. Alternatively in **Explore** with the
+   data source Elasticsearch: `traceId:"<value>"`.
+3. Or directly in Elasticsearch:
+   `curl "http://localhost:9200/music-logs-*/_search?q=traceId:<value>&size=100&sort=@timestamp:asc&pretty"`.
 
 ---
 

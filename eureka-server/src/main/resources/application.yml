@@ -16,3 +16,17 @@ eureka:
   server:
     enable-self-preservation: false
     eviction-interval-timer-in-ms: 30000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      # label of every metric, used by the Grafana dashboards
+      application: ${spring.application.name}
+    distribution:
+      # histogram buckets: needed for the latency percentiles (histogram_quantile) in Grafana
+      percentiles-histogram:
+        http.server.requests: true

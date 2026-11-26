@@ -19,6 +19,8 @@ repositories {
 dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-server'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // /actuator/prometheus: metrics for Prometheus (Grafana dashboards)
+    implementation 'io.micrometer:micrometer-registry-prometheus'
 }
 
 dependencyManagement {

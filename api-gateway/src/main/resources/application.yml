@@ -1,6 +1,9 @@
 spring:
   application:
     name: api-gateway
+  reactor:
+    # keeps the trace context between the reactive threads of the gateway
+    context-propagation: auto
   cloud:
     gateway:
       discovery:
@@ -25,13 +28,25 @@ server:
   port: 8080
 
 management:
+  tracing:
+    sampling:
+      # every request is traced (a demo project, no sampling)
+      probability: 1.0
   endpoints:
     web:
       exposure:
-        include: gateway,health,info
+        include: gateway,health,info,prometheus
   endpoint:
     gateway:
       enabled: true
+  metrics:
+    tags:
+      # label of every metric, used by the Grafana dashboards
+      application: ${spring.application.name}
+    distribution:
+      # histogram buckets: needed for the latency percentiles (histogram_quantile) in Grafana
+      percentiles-histogram:
+        http.server.requests: true
 
 eureka:
   instance:
